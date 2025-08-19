@@ -65,7 +65,9 @@ const SignupPage = () => {
               <div className="bg-indigo-100 p-3 rounded-full mb-2">
                 <FaHammer className="text-indigo-600 text-xl" />
               </div>
-              <span className="font-medium">I'm a Worker</span>
+              <span className="font-medium" onClick={()=>{
+                navigate("/workerdashboard")
+              }}>I'm a Worker</span>
               <span className="text-xs text-gray-500 mt-1">Offer my services</span>
             </button>
             
@@ -76,7 +78,9 @@ const SignupPage = () => {
               <div className="bg-indigo-100 p-3 rounded-full mb-2">
                 <FaUser className="text-indigo-600 text-xl" />
               </div>
-              <span className="font-medium">I'm a Customer</span>
+              <span className="font-medium"  onClick={()=>{
+                navigate("/userdashboard")
+              }}>I'm a Customer</span>
               <span className="text-xs text-gray-500 mt-1">Find skilled workers</span>
             </button>
           </div>
