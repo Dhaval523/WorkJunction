@@ -14,7 +14,7 @@ const SignupPage = () => {
         confirmPassword: "",
     });
 
-    const { signUp, googleSignUp } = useAuthStore();
+    const { signUp, user, googleSignUp, sendOtp } = useAuthStore();
     const navigate = useNavigate();
 
     const handleGoogleSignup = async () => {
@@ -44,14 +44,11 @@ const SignupPage = () => {
             phone: formData.phone,
         };
 
-        const res = await signUp(data);
-        
-     
+        const user = await signUp(data);
 
-        console.log(res);
-        
-        if (res) {
-            navigate("/verification");
+        if (user) {
+            await sendOtp({ mobileNumber: user?.phone });
+            navigate("/otp");
         }
     };
 

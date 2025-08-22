@@ -44,7 +44,11 @@ const userSchema = new mongoose.Schema(
         isActive: {
             type: Boolean,
             default: true,
-        }
+        },
+        isMobileNumberVerified: {
+            type: Boolean,
+            default: false,
+        },
     },
     {
         timestamps: true,
