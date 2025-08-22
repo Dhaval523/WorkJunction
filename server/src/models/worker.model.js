@@ -36,27 +36,41 @@ const workerSchema = new mongoose.Schema(
             min: 0,
         },
 
-        // Availability for booking
+        // Availability
         availability: {
             type: Boolean,
             default: true,
         },
-
-        // Document verification
-        govtIDType: {
-            type: String,
-            enum: ["Aadhaar", "PAN", "Driving License", "Passport"],
+        verification: {
+            policeDocUrl: {
+                type: String, // URL to the police verification document
+                default: null,
+            },
+            aadharDocUrl: {
+                type: String, // URL to the Aadhar document
+                default: null,
+            },
+            isPoliceDocVerified: {
+                type: Boolean,
+                default: false,
+            },
+            isAadharDocVerified: {
+                type: Boolean,
+                default: false,
+            },
         },
-        govtIDNumber: {
+        // Verification status summary
+        verificationStage: {
             type: String,
-        },
-        documentUpload: {
-            type: String, // URL or file path
-        },
-        verificationStatus: {
-            type: String,
-            enum: ["pending", "approved", "rejected"],
-            default: "pending",
+            enum: [
+                "TNC_PENDING",
+                "TNC_ACCEPTED",
+                "POLICE_DOC_SUBMITTED",
+                "UNDER_REVIEW",
+                "APPROVED",
+                "REJECTED",
+            ],
+            default: "TNC_PENDING",
         },
 
         // Ratings & Reviews
@@ -77,7 +91,7 @@ const workerSchema = new mongoose.Schema(
             },
         ],
 
-        // Optional bio and language
+        // Profile extras
         bio: {
             type: String,
         },
@@ -86,10 +100,47 @@ const workerSchema = new mongoose.Schema(
             default: [],
         },
     },
+    { timestamps: true }
+);
+
+// Detailed verification schema
+const verificationSchema = new mongoose.Schema(
     {
-        timestamps: true,
-    }
+        worker: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Worker",
+            required: true,
+        },
+        stage: {
+            type: String,
+            enum: [
+                "TNC_PENDING",
+                "TNC_ACCEPTED",
+                "POLICE_DOC_SUBMITTED",
+                "UNDER_REVIEW",
+                "APPROVED",
+                "REJECTED",
+            ],
+            default: "TNC_PENDING",
+        },
+        policeDocument: {
+            type: String, // file path / S3 URL
+        },
+        reviewedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User", // Admin
+        },
+        reviewedAt: {
+            type: Date,
+        },
+        rejectedReason: {
+            type: String,
+        },
+    },
+    { timestamps: true }
 );
 
 const Worker = mongoose.model("Worker", workerSchema);
-export { Worker };
+const Verification = mongoose.model("Verification", verificationSchema);
+
+export { Worker, Verification };

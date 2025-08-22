@@ -14,7 +14,7 @@ const SignupPage = () => {
         confirmPassword: "",
     });
 
-    const { signUp, googleSignUp } = useAuthStore();
+    const { signUp, user, googleSignUp, sendOtp } = useAuthStore();
     const navigate = useNavigate();
 
     const handleGoogleSignup = async () => {
@@ -44,11 +44,11 @@ const SignupPage = () => {
             phone: formData.phone,
         };
 
-        const res = await signUp(data);
+        const user = await signUp(data);
 
-        console.log(res);
-        if (res) {
-            navigate("/");
+        if (user) {
+            await sendOtp({ mobileNumber: user?.phone });
+            navigate("/otp");
         }
     };
 
@@ -57,7 +57,7 @@ const SignupPage = () => {
             <div className="bg-white rounded-2xl shadow-xl overflow-hidden w-full max-w-md">
                 <div className="bg-indigo-600 py-6 px-8 text-center">
                     <h1 className="text-3xl font-bold text-white">
-                        Join KaamWale
+                        Work Junction
                     </h1>
                     <p className="text-indigo-100 mt-2">
                         Find skilled workers or get hired

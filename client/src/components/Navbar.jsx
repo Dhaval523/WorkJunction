@@ -41,7 +41,7 @@ const Navbar = ({ isMenuOpen, setIsMenuOpen }) => {
                 <FaHammer className="h-6 w-6 text-white" />
               </motion.div>
               <span className="ml-3 text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                KaamWale
+                WorkJunction
               </span>
             </div>
           </motion.div>

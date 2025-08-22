@@ -6,7 +6,7 @@ dotenv.config();
 const cookieOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production", // use HTTPS in production
-    sameSite: "none",
+    sameSite: "lax",
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
 };
 
@@ -17,6 +17,7 @@ export const setToken = (user, res) => {
         { expiresIn: "7d" }
     );
     res.cookie("token", token, cookieOptions);
+    return token;
 };
 
 export const removeToken = (res) => {

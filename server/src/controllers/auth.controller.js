@@ -1,5 +1,8 @@
 import { User } from "../models/user.model.js";
 import { removeToken, setToken } from "../utils/utils.js";
+import twilio from "twilio";
+import dotenv from "dotenv";
+dotenv.config();
 
 // 📝 Signup Controller
 export const signup = async (req, res) => {
@@ -14,6 +17,13 @@ export const signup = async (req, res) => {
                 .json({ message: "Email already registered" });
         }
 
+        const existingPhone = await User.findOne({ phone });
+        if (existingPhone) {
+            return res
+                .status(400)
+                .json({ message: "Phone number already registered" });
+        }
+
         // Create new user
         const user = await User.create({
             fullName,
@@ -24,7 +34,7 @@ export const signup = async (req, res) => {
         });
 
         // Token
-        setToken(user, res);
+        const token = setToken(user, res);
 
         res.status(201).json({
             message: "Signup successful",
@@ -33,6 +43,8 @@ export const signup = async (req, res) => {
                 fullName,
                 email: user.email,
                 role: user.role,
+                isMobileVerified: user.isMobileNumberVerified,
+                phone: user.phone,
             },
         });
     } catch (err) {
@@ -72,7 +84,8 @@ export const signin = async (req, res) => {
                 name: `${user.firstName} ${user.lastName}`,
                 email: user.email,
                 role: user.role,
-                isVerified: user.isVerified,
+                isMobileVerified: user.isMobileNumberVerified,
+                phone: user.phone,
             },
         });
     } catch (err) {
@@ -84,4 +97,60 @@ export const signin = async (req, res) => {
 export const logout = (req, res) => {
     removeToken(res);
     res.status(200).json({ message: "Logged out successfully" });
+};
+
+export const sendOtp = async (req, res) => {
+    const { mobileNumber } = req.body;
+    try {
+        const client = twilio(
+            process.env.TWILIO_ACCOUNT_SID,
+            process.env.TWILIO_AUTH_TOKEN
+        );
+        const verification = await client.verify.v2
+            .services(process.env.TWILIO_SERVICE_ID)
+            .verifications.create({
+                to: `+91${mobileNumber}`,
+                channel: "sms",
+            });
+        console.log(verification.sid);
+        res.status(200).json({ message: "OTP sent successfully" });
+    } catch (error) {
+        console.error("Failed to send otp:", error);
+        res.status(500).json({ message: "Failed to send otp" });
+    }
+};
+
+export const verifyOtp = async (req, res) => {
+    const { mobileNumber, otp } = req.body;
+    try {
+        const client = twilio(
+            process.env.TWILIO_ACCOUNT_SID,
+            process.env.TWILIO_AUTH_TOKEN
+        );
+        const verifiedResponse = await client.verify.v2
+            .services(process.env.TWILIO_SERVICE_ID)
+            .verificationChecks.create({
+                to: `+91${mobileNumber}`,
+                code: otp,
+            });
+        console.log(verifiedResponse.status);
+        if (verifiedResponse.status !== "approved") {
+            return res.status(400).json({ message: "Invalid OTP" });
+        }
+        const user = await User.findOne({ phone: mobileNumber });
+        user.isMobileNumberVerified = true;
+        await user.save();
+        res.status(200).json({ message: "OTP verified successfully" });
+    } catch (error) {
+        console.error("Failed to verify otp:", error);
+        res.status(500).json({ message: "Failed to verify otp" });
+    }
+};
+
+export const getUserData = async (req, res) => {
+    try {
+        res.status(200).json({ user: req.user });
+    } catch (error) {
+        res.status(500).json({ user: null });
+    }
 };

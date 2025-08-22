@@ -7,7 +7,12 @@ import SearchWorker from "../pages/SearchWorker";
 import BookingForm from "../pages/BookingForm";
 import MyBookings from "../pages/MyBookings";
 import WorkerDashboard from "../pages/WorkerDashboard";
+<<<<<<< HEAD
 import AdminPanel from "../pages/AdminPage";
+=======
+import WorkerVerification from "../pages/WorkerVerifaction";
+import VerificationPage from "../pages/MobileNumberVerificationPage";
+>>>>>>> 8e47109c94d1ba857991aaec1a720c0c8407c7d9
 
 const Routers = () => {
     return (
@@ -22,9 +27,14 @@ const Routers = () => {
                     <Route path="/mybookings" element={<MyBookings />} />
                     <Route path="/Admin" element={<AdminPanel />} />
                     <Route
+                        path="/verification"
+                        element={<WorkerVerification />}
+                    />
+                    <Route
                         path="/workerdashboard"
                         element={<WorkerDashboard />}
                     />
+                    <Route path="/otp" element={<VerificationPage />} />
                 </Routes>
             </Router>
         </div>

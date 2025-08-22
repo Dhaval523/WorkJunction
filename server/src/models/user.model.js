@@ -29,6 +29,7 @@ const userSchema = new mongoose.Schema(
         role: {
             type: String,
             enum: ["customer", "worker", "admin"],
+            required: true,
             default: "customer",
         },
         address: {
@@ -39,6 +40,14 @@ const userSchema = new mongoose.Schema(
         },
         profileImage: {
             type: String,
+        },
+        isActive: {
+            type: Boolean,
+            default: true,
+        },
+        isMobileNumberVerified: {
+            type: Boolean,
+            default: false,
         },
     },
     {
