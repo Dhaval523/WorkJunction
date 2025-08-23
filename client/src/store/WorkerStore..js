@@ -89,6 +89,23 @@ const useWorkerStore = create((set) => ({
             set({ isLoading: false });
         }
     },
+    getCurrentStage: async () => {
+        set({ isLoading: true });
+        try {
+            const response = await axiosInstance.get(
+                "/api/workers/current-stage"
+            );
+            return response.data;
+        } catch (error) {
+            console.error(
+                "Failed to fetch current stage:",
+                error?.response?.data || error.message
+            );
+            throw error;
+        } finally {
+            set({ isLoading: false });
+        }
+    },
 }));
 
 export default useWorkerStore;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FcGoogle } from "react-icons/fc";
 import { motion } from "framer-motion";
 import { useAuthStore } from "../store/AuthStore";
@@ -10,8 +10,31 @@ const LoginPage = () => {
         password: "",
     });
 
-    const { login, user, googleLogin } = useAuthStore();
+    const { login, user, googleLogin, getUser } = useAuthStore();
     const navigate = useNavigate();
+
+    useEffect(() => {
+        const checkAuth = async () => {
+            try {
+                await getUser();
+                if (user) {
+                    redirectBasedOnRole(user);
+                }
+            } catch (error) {
+                // Handle silently - user needs to login
+            }
+        };
+        checkAuth();
+    }, [user]);
+
+    // Handle role-based navigation
+    const redirectBasedOnRole = (user) => {
+        if (user?.role === "worker") {
+            navigate("/workerdashboard");
+        } else if (user?.role === "customer") {
+            navigate("/userdashboard");
+        }
+    };
 
     const handleGoogleLogin = async () => {
         await googleLogin();

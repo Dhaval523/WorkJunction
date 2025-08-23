@@ -18,6 +18,7 @@ import {
     uploadProfilePhoto,
     reviewWorkerVerification,
     getVerificationStatus,
+    getCurrentStage,
 } from "../controllers/worker.controller.js";
 import { requireAuth } from "../middleware/auth.middleware.js";
 const router = express.Router();
@@ -33,6 +34,8 @@ router.post(
     upload.single("file"),
     uploadPoliceVerification
 );
+router.get("/current-stage", requireAuth, getCurrentStage);
+
 router.post("/upload-profile-photo", upload.single("file"), uploadProfilePhoto);
 router.get("/verification-status", getVerificationStatus);
 

@@ -253,6 +253,48 @@ const getVerificationStatus = async (req, res) => {
     }
 };
 
+const getCurrentStage = async (req, res) => {
+    try {
+        const userId = req.user._id;
+
+        const worker = await Worker.findOne({ user: userId })
+            .select('verificationStage verification')
+            .lean();
+
+        if (!worker) {
+            return res.status(404).json({
+                success: false,
+                message: "Worker not found"
+            });
+        }
+
+        // Map verification stage to step number
+        const stageToStep = {
+            "TNC_PENDING": 0,
+            "TNC_ACCEPTED": 1,
+            "POLICE_DOC_SUBMITTED": 2,
+            "AADHAR_DOC_SUBMITTED": 2,
+            "PHOTO_UPLOADED": 2,
+            "UNDER_REVIEW": 3,
+            "APPROVED": 4,
+            "REJECTED": 3
+        };
+
+        return res.status(200).json({
+            success: true,
+            currentStep: stageToStep[worker.verificationStage] || 0,
+            verificationStage: worker.verificationStage,
+            verification: worker.verification
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Error fetching current stage",
+            error: error.message
+        });
+    }
+};
+
 export {
     updateVerificationStage,
     acceptTnC,
@@ -261,4 +303,5 @@ export {
     uploadProfilePhoto,
     reviewWorkerVerification,
     getVerificationStatus,
+    getCurrentStage
 };

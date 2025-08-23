@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FcGoogle } from "react-icons/fc";
 import { FaHammer, FaUser } from "react-icons/fa";
 import { useAuthStore } from "../store/AuthStore";
@@ -14,8 +14,33 @@ const SignupPage = () => {
         confirmPassword: "",
     });
 
-    const { signUp, user, googleSignUp, sendOtp } = useAuthStore();
+    const { signUp, user, googleSignUp, sendOtp, getUser } = useAuthStore();
     const navigate = useNavigate();
+
+    useEffect(() => {
+        const checkAuth = async () => {
+            try {
+                await getUser();
+                if (user) {
+                    redirectBasedOnRole(user);
+                }
+            } catch (error) {
+                // Handle silently - user needs to login
+            }
+        };
+        checkAuth();
+    }, [user]);
+
+    // Handle role-based navigation
+    const redirectBasedOnRole = (user) => {
+        if (user?.role === "worker") {
+            navigate("/workerdashboard");
+        } else if (user?.role === "customer") {
+            navigate("/userdashboard");
+        } else if (user?.role === "admin") {
+            navigate("/admin/dashboard");
+        }
+    };
 
     const handleGoogleSignup = async () => {
         // Google OAuth implementation

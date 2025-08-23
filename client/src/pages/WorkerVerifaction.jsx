@@ -12,6 +12,7 @@ export default function WorkerVerificationFlow() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
+    const [initialLoading, setInitialLoading] = useState(true);
 
     // Refs
     const policeFileRef = useRef(null);
@@ -24,6 +25,7 @@ export default function WorkerVerificationFlow() {
         uploadPoliceVerification,
         getVerificationStatus,
         isLoading: storeLoading,
+        getCurrentStage,
     } = useWorkerStore();
 
     const steps = useMemo(
@@ -122,20 +124,102 @@ export default function WorkerVerificationFlow() {
         }
     };
 
-    // Effects
+    useEffect(() => {
+        const getInitialStage = async () => {
+            try {
+                setError("");
+                const { currentStep, verificationStage, verification } =
+                    await getCurrentStage();
+
+                // Update step based on verification stage
+                setStep(currentStep);
+
+                // Update document statuses
+                if (verification) {
+                    setPoliceStatus(verification.policeStatus || "Pending");
+                    setAadhaarStatus(verification.aadharStatus || "Pending");
+
+                    // Auto advance to review step if both documents are uploaded
+                    if (
+                        verification.policeDocUrl &&
+                        verification.aadharDocUrl
+                    ) {
+                        setStep(3);
+                    }
+
+                    // Auto advance to final step if both are approved
+                    if (
+                        verification.isPoliceDocVerified &&
+                        verification.isAadharDocVerified
+                    ) {
+                        setStep(4);
+                    }
+                }
+
+                // Set TnC accepted if user has progressed beyond that stage
+                if (verificationStage !== "TNC_PENDING") {
+                    setTncAccepted(true);
+                }
+
+                // Show success message if documents are approved
+                if (
+                    verification?.isPoliceDocVerified &&
+                    verification?.isAadharDocVerified
+                ) {
+                    setSuccess("All documents have been approved!");
+                }
+            } catch (error) {
+                setError(
+                    "Failed to fetch verification status. Please refresh the page."
+                );
+                console.error("Stage fetch error:", error);
+            } finally {
+                setInitialLoading(false);
+            }
+        };
+
+        getInitialStage();
+    }, [getCurrentStage]);
+
+    // Modify the status polling effect
     useEffect(() => {
         if (step !== 3) return;
-        setError("");
-        const id = setInterval(async () => {
+
+        const pollStatus = async () => {
             try {
-                const status = await getVerificationStatus();
-                setPoliceStatus(status.verification.policeStatus);
-                setAadhaarStatus(status.verification.aadharStatus);
-            } catch (e) {
-                // ignore polling errors silently
+                const { verification } = await getVerificationStatus();
+
+                if (verification) {
+                    setPoliceStatus(verification.policeStatus || "Pending");
+                    setAadhaarStatus(verification.aadharStatus || "Pending");
+
+                    // Auto advance if both approved
+                    if (
+                        verification.isPoliceDocVerified &&
+                        verification.isAadharDocVerified
+                    ) {
+                        setSuccess("All documents approved ✔");
+                        setTimeout(() => setStep(4), 1000);
+                    }
+
+                    // Show rejection message if any document is rejected
+                    if (
+                        verification.policeStatus === "Rejected" ||
+                        verification.aadharStatus === "Rejected"
+                    ) {
+                        setError(
+                            "One or more documents were rejected. Please check the status below."
+                        );
+                    }
+                }
+            } catch (error) {
+                // Silent fail for polling
+                console.error("Status polling error:", error);
             }
-        }, 4000);
-        return () => clearInterval(id);
+        };
+
+        const pollInterval = setInterval(pollStatus, 4000);
+        return () => clearInterval(pollInterval);
     }, [step, getVerificationStatus]);
 
     useEffect(() => {
@@ -170,35 +254,53 @@ export default function WorkerVerificationFlow() {
         <ol className="flex items-center w-full mb-6">
             {steps.map((s, i) => {
                 const active = i === step;
-                const done =
-                    i < step ||
-                    (i === 3 &&
-                        policeStatus === "Approved" &&
-                        aadhaarStatus === "Approved");
+                const done = i < step;
+                const approved =
+                    i === 3 &&
+                    policeStatus === "Approved" &&
+                    aadhaarStatus === "Approved";
+
                 return (
                     <li key={s.key} className="flex-1 flex items-center">
                         <div
                             className={`flex items-center justify-center w-8 h-8 rounded-full border ${
-                                done
+                                done || approved
                                     ? "bg-green-600 text-white border-green-600"
                                     : active
                                     ? "border-blue-600 text-blue-600"
                                     : "border-gray-300 text-gray-400"
                             }`}
                         >
-                            {done ? "✓" : i + 1}
+                            {done || approved ? "✓" : i + 1}
                         </div>
                         <div className="ml-2 text-sm font-medium text-gray-700 hidden sm:block">
                             {s.title}
                         </div>
                         {i !== steps.length - 1 && (
-                            <div className="flex-1 h-px bg-gray-200 mx-3" />
+                            <div
+                                className={`flex-1 h-px ${
+                                    done ? "bg-green-600" : "bg-gray-200"
+                                } mx-3`}
+                            />
                         )}
                     </li>
                 );
             })}
         </ol>
     );
+
+    if (initialLoading) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
+                <div className="bg-white p-8 rounded-2xl shadow-2xl">
+                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
+                    <p className="text-slate-600 mt-4">
+                        Loading verification status...
+                    </p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100 py-10 px-4">
