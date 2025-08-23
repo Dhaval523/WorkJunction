@@ -7,6 +7,7 @@ import SearchWorker from "../pages/SearchWorker";
 import BookingForm from "../pages/BookingForm";
 import MyBookings from "../pages/MyBookings";
 import WorkerDashboard from "../pages/WorkerDashboard";
+import AdminPanel from "../pages/AdminPage";
 import WorkerVerification from "../pages/WorkerVerifaction";
 import VerificationPage from "../pages/MobileNumberVerificationPage";
 
@@ -21,6 +22,7 @@ const Routers = () => {
                     <Route path="/searchworker" element={<SearchWorker />} />
                     <Route path="/bookingform" element={<BookingForm />} />
                     <Route path="/mybookings" element={<MyBookings />} />
+                    <Route path="/Admin" element={<AdminPanel />} />
                     <Route
                         path="/verification"
                         element={<WorkerVerification />}

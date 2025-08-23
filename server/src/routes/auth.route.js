@@ -11,7 +11,7 @@ import { requireAuth } from "../middleware/auth.middleware.js";
 
 const router = Router();
 
-router.post("/sign-in", signin);
+router.post("/login", signin);
 router.post("/sign-up", signup);
 router.post("/logout", logout);
 router.post("/send-otp", requireAuth, sendOtp);
