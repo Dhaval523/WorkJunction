@@ -2,6 +2,7 @@ import { User } from "../models/user.model.js";
 import { removeToken, setToken } from "../utils/utils.js";
 import twilio from "twilio";
 import dotenv from "dotenv";
+import { Worker } from "../models/worker.model.js";
 dotenv.config();
 
 // 📝 Signup Controller
@@ -33,8 +34,13 @@ export const signup = async (req, res) => {
             role,
         });
 
+        if (user.role == "worker") {
+            await Worker.create({
+                user: user._id,
+            });
+        }
         // Token
-        const token = setToken(user, res);
+        setToken(user, res);
 
         res.status(201).json({
             message: "Signup successful",

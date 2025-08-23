@@ -20,10 +20,12 @@ const LoginPage = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         const user = await login(formData);
-        if (user?.role == "worker") {
-            navigate("/workerdashboard");
-        } else {
-            navigate("/userdashboard");
+        if (user) {
+            if (user?.role == "worker") {
+                navigate("/workerdashboard");
+            } else {
+                navigate("/userdashboard");
+            }
         }
     };
 

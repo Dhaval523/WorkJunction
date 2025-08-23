@@ -1,356 +1,519 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import useWorkerStore from "../store/useWorkerStore.";
+import useWorkerStore from "../store/WorkerStore.";
+import { useNavigate } from "react-router-dom";
 
 export default function WorkerVerificationFlow() {
-  // 0 = Terms, 1 = Police PDF, 2 = Aadhaar, 3 = Admin Review, 4 = Done
-  const [step, setStep] = useState(0);
+    const navigate = useNavigate();
+    // States
+    const [step, setStep] = useState(0);
+    const [policeStatus, setPoliceStatus] = useState("Pending");
+    const [aadhaarStatus, setAadhaarStatus] = useState("Pending");
+    const [tncAccepted, setTncAccepted] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
+    const [success, setSuccess] = useState("");
 
-  // Statuses controlled by backend; we simulate + poll
-  const [policeStatus, setPoliceStatus] = useState("Pending"); // Pending | Approved | Rejected
-  const [aadhaarStatus, setAadhaarStatus] = useState("Pending");
+    // Refs
+    const policeFileRef = useRef(null);
+    const aadhaarFileRef = useRef(null);
 
-  // UI state
-  const [tncAccepted, setTncAccepted] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+    // Get methods from WorkerStore
+    const {
+        acceptTnC,
+        uploadAadharDoc,
+        uploadPoliceVerification,
+        getVerificationStatus,
+        isLoading: storeLoading,
+    } = useWorkerStore();
 
-  const policeFileRef = useRef(null);
-  const aadhaarFileRef = useRef(null);
-  const {  uploadPoliceVerification } = useWorkerStore();
+    const steps = useMemo(
+        () => [
+            { title: "Terms & Conditions", key: "tnc" },
+            { title: "Police Verification PDF", key: "police" },
+            { title: "Aadhaar / ID Upload", key: "aadhaar" },
+            { title: "Admin Approval", key: "review" },
+            { title: "Ready!", key: "done" },
+        ],
+        []
+    );
 
-  const steps = useMemo(
-    () => [
-      { title: "Terms & Conditions", key: "tnc" },
-      { title: "Police Verification PDF", key: "police" },
-      { title: "Aadhaar / ID Upload", key: "aadhaar" },
-      { title: "Admin Approval", key: "review" },
-      { title: "Ready!", key: "done" },
-    ],
-    []
-  );
+    const progress = useMemo(
+        () => ((step + 1) / steps.length) * 100,
+        [step, steps.length]
+    );
 
-  const progress = useMemo(() => ((step + 1) / steps.length) * 100, [step, steps.length]);
-
-  // ---- Helpers: replace endpoints with your API routes ---- //
-  const authHeader = () => ({ Authorization: `Bearer ${localStorage.getItem("token") || ""}` });
-
-  async function apiAcceptTnc() {
-    // await fetch("/api/worker/tnc/accept", { method: "POST", headers: { ...authHeader() } });
-    return true;
-  }
-
-  async function apiUploadPolice(file) {
-    const fd = new FormData();
-    fd.append("pdf", file);
-    await uploadPoliceVerification(file);
-  
-    return true;
-  }
-
-  async function apiUploadAadhaar(file) {
-    const fd = new FormData();
-    fd.append("file", file);
-     await fetch("/api/worker/id/upload", { method: "POST", headers: { ...authHeader() }, body: fd });
-    return true;
-  }
-
-  async function apiGetVerificationStatus() {
-    // const res = await fetch("/api/worker/verification/status", { headers: { ...authHeader() } });
-    // return res.json();
-    // Example shape expected from backend:
-    // { police: "Pending" | "Approved" | "Rejected", aadhaar: "Pending" | "Approved" | "Rejected" }
-    return { police: policeStatus, aadhaar: aadhaarStatus };
-  }
-
-  // Polling for admin approval while on step 3
-  useEffect(() => {
-    if (step !== 3) return;
-    setError("");
-    const id = setInterval(async () => {
-      try {
-        const s = await apiGetVerificationStatus();
-        setPoliceStatus(s.police);
-        setAadhaarStatus(s.aadhaar);
-      } catch (e) {
-        // ignore polling errors silently
-      }
-    }, 4000);
-    return () => clearInterval(id);
-  }, [step]);
-
-  // Navigate to final step automatically once both approved
-  useEffect(() => {
-    if (step === 3 && policeStatus === "Approved" && aadhaarStatus === "Approved") {
-      setSuccess("All documents approved ✔");
-      const t = setTimeout(() => setStep(4), 1000);
-      return () => clearTimeout(t);
+    // Validators
+    function validatePdf(file) {
+        if (!file) return "Please choose a PDF file.";
+        if (file.type !== "application/pdf") return "Only PDF is allowed.";
+        if (file.size > 5 * 1024 * 1024) return "Max size is 5MB.";
+        return "";
     }
-  }, [step, policeStatus, aadhaarStatus]);
 
-  // ---- Validators ---- //
-  function validatePdf(file) {
-    if (!file) return "Please choose a PDF file.";
-    if (file.type !== "application/pdf") return "Only PDF is allowed.";
-    if (file.size > 5 * 1024 * 1024) return "Max size is 5MB.";
-    return "";
-  }
-
-  function validateId(file) {
-    if (!file) return "Please upload Aadhaar/ID (image or PDF).";
-    const okTypes = ["application/pdf", "image/png", "image/jpeg", "image/jpg", "image/webp"];
-    if (!okTypes.includes(file.type)) return "Allowed: PDF/PNG/JPG/WEBP.";
-    if (file.size > 5 * 1024 * 1024) return "Max size is 5MB.";
-    return "";
-  }
-
-  // ---- Actions ---- //
-  const handleAcceptTnc = async () => {
-    try {
-      setLoading(true);
-      setError("");
-      if (!tncAccepted) return setError("Please accept the Terms & Conditions to continue.");
-      await apiAcceptTnc();
-      setSuccess("Terms accepted");
-      setStep(1);
-    } catch (e) {
-      setError(e?.message || "Failed to accept terms");
-    } finally {
-      setLoading(false);
+    function validateId(file) {
+        if (!file) return "Please upload Aadhaar/ID (image or PDF).";
+        const okTypes = [
+            "application/pdf",
+            "image/png",
+            "image/jpeg",
+            "image/jpg",
+            "image/webp",
+        ];
+        if (!okTypes.includes(file.type)) return "Allowed: PDF/PNG/JPG/WEBP.";
+        if (file.size > 5 * 1024 * 1024) return "Max size is 5MB.";
+        return "";
     }
-  };
 
-  const handlePoliceUpload = async () => {
-    try {
-      setLoading(true);
-      setError("");
-      const file = policeFileRef.current?.files?.[0] || null;
-      const v = validatePdf(file);
-      if (v) return setError(v);
-      await apiUploadPolice(file );
-      setSuccess("Police verification uploaded");
-      setPoliceStatus("Pending");
-      setStep(2);
-    } catch (e) {
-      setError(e?.message || "Upload failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAadhaarUpload = async () => {
-    try {
-      setLoading(true);
-      setError("");
-      const file = aadhaarFileRef.current?.files?.[0] || null;
-      const v = validateId(file);
-      if (v) return setError(v);
-      await apiUploadAadhaar(file);
-      setSuccess("ID uploaded");
-      setAadhaarStatus("Pending");
-      setStep(3);
-    } catch (e) {
-      setError(e?.message || "Upload failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const goDashboard = () => {
-    window.location.href = "/dashboard/worker"; // or use router.navigate
-  };
-
-  // ---- UI helpers ---- //
-  const badge = (status) => {
-    const map = {
-      Approved: "bg-green-100 text-green-700",
-      Rejected: "bg-red-100 text-red-700",
-      Pending: "bg-yellow-100 text-yellow-700",
+    // Action Handlers
+    const handleAcceptTnc = async () => {
+        try {
+            setLoading(true);
+            setError("");
+            if (!tncAccepted) {
+                return setError(
+                    "Please accept the Terms & Conditions to continue."
+                );
+            }
+            await acceptTnC();
+            setSuccess("Terms accepted");
+            setStep(1);
+        } catch (e) {
+            setError(e?.message || "Failed to accept terms");
+        } finally {
+            setLoading(false);
+        }
     };
-    return `inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${map[status] || "bg-gray-100 text-gray-700"}`;
-  };
 
-  const Stepper = () => (
-    <ol className="flex items-center w-full mb-6">
-      {steps.map((s, i) => {
-        const active = i === step;
-        const done = i < step || (i === 3 && policeStatus === "Approved" && aadhaarStatus === "Approved");
-        return (
-          <li key={s.key} className="flex-1 flex items-center">
-            <div className={`flex items-center justify-center w-8 h-8 rounded-full border ${
-              done ? "bg-green-600 text-white border-green-600" : active ? "border-blue-600 text-blue-600" : "border-gray-300 text-gray-400"
-            }`}>{done ? "✓" : i + 1}</div>
-            <div className="ml-2 text-sm font-medium text-gray-700 hidden sm:block">{s.title}</div>
-            {i !== steps.length - 1 && <div className="flex-1 h-px bg-gray-200 mx-3" />}
-          </li>
-        );
-      })}
-    </ol>
-  );
+    const handlePoliceUpload = async () => {
+        try {
+            setLoading(true);
+            setError("");
+            const file = policeFileRef.current?.files?.[0] || null;
+            const v = validatePdf(file);
+            if (v) return setError(v);
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100 py-10 px-4">
-      <div className="max-w-3xl mx-auto">
-        <div className="bg-white text-slate-900 rounded-2xl shadow-2xl p-6 md:p-8">
-          {/* Header */}
-          <div className="mb-6">
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Worker Onboarding</h1>
-            <p className="text-slate-500 mt-1">Complete these steps to get verified and start accepting jobs.</p>
-          </div>
+            await uploadPoliceVerification(file);
+            setSuccess("Police verification uploaded");
+            setPoliceStatus("Pending");
+            setStep(2);
+        } catch (e) {
+            setError(e?.message || "Upload failed");
+        } finally {
+            setLoading(false);
+        }
+    };
 
-          {/* Stepper */}
-          <Stepper />
+    const handleAadhaarUpload = async () => {
+        try {
+            setLoading(true);
+            setError("");
+            const file = aadhaarFileRef.current?.files?.[0] || null;
+            const v = validateId(file);
+            if (v) return setError(v);
 
-          {/* Progress bar */}
-          <div className="w-full bg-slate-100 rounded-full h-2 mb-6">
-            <div className="h-2 rounded-full bg-blue-600 transition-all" style={{ width: `${progress}%` }} />
-          </div>
+            await uploadAadharDoc(file);
+            setSuccess("ID uploaded");
+            setAadhaarStatus("Pending");
+            setStep(3);
+        } catch (e) {
+            setError(e?.message || "Upload failed");
+        } finally {
+            setLoading(false);
+        }
+    };
 
-          {/* Alerts */}
-          {error && (
-            <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-700 border border-red-200 text-sm">{error}</div>
-          )}
-          {success && (
-            <div className="mb-4 p-3 rounded-lg bg-green-50 text-green-700 border border-green-200 text-sm">{success}</div>
-          )}
+    // Effects
+    useEffect(() => {
+        if (step !== 3) return;
+        setError("");
+        const id = setInterval(async () => {
+            try {
+                const status = await getVerificationStatus();
+                setPoliceStatus(status.verification.policeStatus);
+                setAadhaarStatus(status.verification.aadharStatus);
+            } catch (e) {
+                // ignore polling errors silently
+            }
+        }, 4000);
+        return () => clearInterval(id);
+    }, [step, getVerificationStatus]);
 
-          {/* Step content */}
-          <div className="min-h-[220px]">
-            {step === 0 && (
-              <div>
-                <h2 className="text-xl font-semibold mb-3">Terms & Conditions</h2>
-                <div className="border rounded-lg p-4 h-40 overflow-y-auto text-sm text-slate-600">
-                  <p className="mb-2 font-medium">Please read carefully:</p>
-                  <ul className="list-disc pl-5 space-y-1">
-                    <li>You agree to provide accurate identity and address proofs.</li>
-                    <li>No sharing of customer personal information.</li>
-                    <li>Work must comply with local safety laws and regulations.</li>
-                    <li>Payments and cancellations follow WorkJunction policies.</li>
-                    <li>Violation of terms may lead to permanent account suspension.</li>
-                  </ul>
-                </div>
-                <label className="flex items-center gap-2 mt-4 text-sm">
-                  <input type="checkbox" className="w-4 h-4" checked={tncAccepted} onChange={(e) => setTncAccepted(e.target.checked)} />
-                  I have read and accept the Terms & Conditions
-                </label>
-                <div className="mt-4 flex gap-3">
-                  <button
-                    onClick={handleAcceptTnc}
-                    disabled={!tncAccepted || loading}
-                    className={`px-4 py-2 rounded-lg text-white ${!tncAccepted || loading ? "bg-gray-400" : "bg-blue-600 hover:bg-blue-700"}`}
-                  >
-                    {loading ? "Processing..." : "Accept & Continue"}
-                  </button>
-                </div>
-              </div>
-            )}
+    useEffect(() => {
+        if (
+            step === 3 &&
+            policeStatus === "Approved" &&
+            aadhaarStatus === "Approved"
+        ) {
+            setSuccess("All documents approved ✔");
+            const t = setTimeout(() => setStep(4), 1000);
+            return () => clearTimeout(t);
+        }
+    }, [step, policeStatus, aadhaarStatus]);
 
-            {step === 1 && (
-              <div>
-                <h2 className="text-xl font-semibold mb-3">Upload Police Verification (PDF)</h2>
-                <p className="text-sm text-slate-600 mb-3">Accepted file: <b>PDF</b>, max 5MB.</p>
-                <input ref={policeFileRef} type="file" accept="application/pdf" className="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
-                <div className="mt-4 flex gap-3">
-                  <button onClick={() => setStep(0)} className="px-4 py-2 rounded-lg border">Back</button>
-                  <button onClick={handlePoliceUpload} disabled={loading} className={`px-4 py-2 rounded-lg text-white ${loading ? "bg-gray-400" : "bg-blue-600 hover:bg-blue-700"}`}>{loading ? "Uploading..." : "Upload & Continue"}</button>
-                </div>
-              </div>
-            )}
+    const goDashboard = () => {
+        navigate("/workerdashboard");
+    };
 
-            {step === 2 && (
-              <div>
-                <h2 className="text-xl font-semibold mb-3">Upload Aadhaar / ID</h2>
-                <p className="text-sm text-slate-600 mb-3">Accepted: PDF, PNG, JPG, WEBP (max 5MB).</p>
-                <input ref={aadhaarFileRef} type="file" accept="application/pdf,image/png,image/jpeg,image/jpg,image/webp" className="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
-                <div className="mt-4 flex gap-3">
-                  <button onClick={() => setStep(1)} className="px-4 py-2 rounded-lg border">Back</button>
-                  <button onClick={handleAadhaarUpload} disabled={loading} className={`px-4 py-2 rounded-lg text-white ${loading ? "bg-gray-400" : "bg-blue-600 hover:bg-blue-700"}`}>{loading ? "Uploading..." : "Upload & Continue"}</button>
-                </div>
-              </div>
-            )}
+    // UI Helper for status badges
+    const badge = (status) => {
+        const map = {
+            Approved: "bg-green-100 text-green-700",
+            Rejected: "bg-red-100 text-red-700",
+            Pending: "bg-yellow-100 text-yellow-700",
+        };
+        return `inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+            map[status] || "bg-gray-100 text-gray-700"
+        }`;
+    };
 
-            {step === 3 && (
-              <div>
-                <h2 className="text-xl font-semibold mb-3">Admin Review & Status</h2>
-                <p className="text-sm text-slate-600 mb-4">We are reviewing your documents. You'll be notified once approved.</p>
+    const Stepper = () => (
+        <ol className="flex items-center w-full mb-6">
+            {steps.map((s, i) => {
+                const active = i === step;
+                const done =
+                    i < step ||
+                    (i === 3 &&
+                        policeStatus === "Approved" &&
+                        aadhaarStatus === "Approved");
+                return (
+                    <li key={s.key} className="flex-1 flex items-center">
+                        <div
+                            className={`flex items-center justify-center w-8 h-8 rounded-full border ${
+                                done
+                                    ? "bg-green-600 text-white border-green-600"
+                                    : active
+                                    ? "border-blue-600 text-blue-600"
+                                    : "border-gray-300 text-gray-400"
+                            }`}
+                        >
+                            {done ? "✓" : i + 1}
+                        </div>
+                        <div className="ml-2 text-sm font-medium text-gray-700 hidden sm:block">
+                            {s.title}
+                        </div>
+                        {i !== steps.length - 1 && (
+                            <div className="flex-1 h-px bg-gray-200 mx-3" />
+                        )}
+                    </li>
+                );
+            })}
+        </ol>
+    );
 
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between rounded-lg border p-3">
-                    <div>
-                      <p className="font-medium">Police Verification PDF</p>
-                      <p className="text-xs text-slate-500">Uploaded successfully • Awaiting admin decision</p>
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100 py-10 px-4">
+            <div className="max-w-3xl mx-auto">
+                <div className="bg-white text-slate-900 rounded-2xl shadow-2xl p-6 md:p-8">
+                    {/* Header */}
+                    <div className="mb-6">
+                        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+                            Worker Onboarding
+                        </h1>
+                        <p className="text-slate-500 mt-1">
+                            Complete these steps to get verified and start
+                            accepting jobs.
+                        </p>
                     </div>
-                    <span className={badge(policeStatus)}>{policeStatus}</span>
-                  </div>
-                  <div className="flex items-center justify-between rounded-lg border p-3">
-                    <div>
-                      <p className="font-medium">Aadhaar / ID</p>
-                      <p className="text-xs text-slate-500">Uploaded successfully • Awaiting admin decision</p>
+
+                    {/* Stepper */}
+                    <Stepper />
+
+                    {/* Progress bar */}
+                    <div className="w-full bg-slate-100 rounded-full h-2 mb-6">
+                        <div
+                            className="h-2 rounded-full bg-blue-600 transition-all"
+                            style={{ width: `${progress}%` }}
+                        />
                     </div>
-                    <span className={badge(aadhaarStatus)}>{aadhaarStatus}</span>
-                  </div>
+
+                    {/* Alerts */}
+                    {error && (
+                        <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-700 border border-red-200 text-sm">
+                            {error}
+                        </div>
+                    )}
+                    {success && (
+                        <div className="mb-4 p-3 rounded-lg bg-green-50 text-green-700 border border-green-200 text-sm">
+                            {success}
+                        </div>
+                    )}
+
+                    {/* Step content */}
+                    <div className="min-h-[220px]">
+                        {step === 0 && (
+                            <div>
+                                <h2 className="text-xl font-semibold mb-3">
+                                    Terms & Conditions
+                                </h2>
+                                <div className="border rounded-lg p-4 h-40 overflow-y-auto text-sm text-slate-600">
+                                    <p className="mb-2 font-medium">
+                                        Please read carefully:
+                                    </p>
+                                    <ul className="list-disc pl-5 space-y-1">
+                                        <li>
+                                            You agree to provide accurate
+                                            identity and address proofs.
+                                        </li>
+                                        <li>
+                                            No sharing of customer personal
+                                            information.
+                                        </li>
+                                        <li>
+                                            Work must comply with local safety
+                                            laws and regulations.
+                                        </li>
+                                        <li>
+                                            Payments and cancellations follow
+                                            WorkJunction policies.
+                                        </li>
+                                        <li>
+                                            Violation of terms may lead to
+                                            permanent account suspension.
+                                        </li>
+                                    </ul>
+                                </div>
+                                <label className="flex items-center gap-2 mt-4 text-sm">
+                                    <input
+                                        type="checkbox"
+                                        className="w-4 h-4"
+                                        checked={tncAccepted}
+                                        onChange={(e) =>
+                                            setTncAccepted(e.target.checked)
+                                        }
+                                    />
+                                    I have read and accept the Terms &
+                                    Conditions
+                                </label>
+                                <div className="mt-4 flex gap-3">
+                                    <button
+                                        onClick={handleAcceptTnc}
+                                        disabled={!tncAccepted || storeLoading}
+                                        className={`px-4 py-2 rounded-lg text-white ${
+                                            !tncAccepted || storeLoading
+                                                ? "bg-gray-400"
+                                                : "bg-blue-600 hover:bg-blue-700"
+                                        }`}
+                                    >
+                                        {storeLoading
+                                            ? "Processing..."
+                                            : "Accept & Continue"}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {step === 1 && (
+                            <div>
+                                <h2 className="text-xl font-semibold mb-3">
+                                    Upload Police Verification (PDF)
+                                </h2>
+                                <p className="text-sm text-slate-600 mb-3">
+                                    Accepted file: <b>PDF</b>, max 5MB.
+                                </p>
+                                <input
+                                    ref={policeFileRef}
+                                    type="file"
+                                    accept="application/pdf"
+                                    className="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                />
+                                <div className="mt-4 flex gap-3">
+                                    <button
+                                        onClick={() => setStep(0)}
+                                        className="px-4 py-2 rounded-lg border"
+                                    >
+                                        Back
+                                    </button>
+                                    <button
+                                        onClick={handlePoliceUpload}
+                                        disabled={loading}
+                                        className={`px-4 py-2 rounded-lg text-white ${
+                                            loading
+                                                ? "bg-gray-400"
+                                                : "bg-blue-600 hover:bg-blue-700"
+                                        }`}
+                                    >
+                                        {loading
+                                            ? "Uploading..."
+                                            : "Upload & Continue"}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {step === 2 && (
+                            <div>
+                                <h2 className="text-xl font-semibold mb-3">
+                                    Upload Aadhaar / ID
+                                </h2>
+                                <p className="text-sm text-slate-600 mb-3">
+                                    Accepted: PDF, PNG, JPG, WEBP (max 5MB).
+                                </p>
+                                <input
+                                    ref={aadhaarFileRef}
+                                    type="file"
+                                    accept="application/pdf,image/png,image/jpeg,image/jpg,image/webp"
+                                    className="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                />
+                                <div className="mt-4 flex gap-3">
+                                    <button
+                                        onClick={() => setStep(1)}
+                                        className="px-4 py-2 rounded-lg border"
+                                    >
+                                        Back
+                                    </button>
+                                    <button
+                                        onClick={handleAadhaarUpload}
+                                        disabled={loading}
+                                        className={`px-4 py-2 rounded-lg text-white ${
+                                            loading
+                                                ? "bg-gray-400"
+                                                : "bg-blue-600 hover:bg-blue-700"
+                                        }`}
+                                    >
+                                        {loading
+                                            ? "Uploading..."
+                                            : "Upload & Continue"}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {step === 3 && (
+                            <div>
+                                <h2 className="text-xl font-semibold mb-3">
+                                    Admin Review & Status
+                                </h2>
+                                <p className="text-sm text-slate-600 mb-4">
+                                    We are reviewing your documents. You'll be
+                                    notified once approved.
+                                </p>
+
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between rounded-lg border p-3">
+                                        <div>
+                                            <p className="font-medium">
+                                                Police Verification PDF
+                                            </p>
+                                            <p className="text-xs text-slate-500">
+                                                Uploaded successfully • Awaiting
+                                                admin decision
+                                            </p>
+                                        </div>
+                                        <span className={badge(policeStatus)}>
+                                            {policeStatus}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center justify-between rounded-lg border p-3">
+                                        <div>
+                                            <p className="font-medium">
+                                                Aadhaar / ID
+                                            </p>
+                                            <p className="text-xs text-slate-500">
+                                                Uploaded successfully • Awaiting
+                                                admin decision
+                                            </p>
+                                        </div>
+                                        <span className={badge(aadhaarStatus)}>
+                                            {aadhaarStatus}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {(policeStatus === "Rejected" ||
+                                    aadhaarStatus === "Rejected") && (
+                                    <div className="mt-4 p-3 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 text-sm">
+                                        One or more documents were rejected.
+                                        Please re-upload the correct
+                                        document(s).
+                                        <div className="mt-3 flex gap-2">
+                                            {policeStatus === "Rejected" && (
+                                                <button
+                                                    onClick={() => setStep(1)}
+                                                    className="px-3 py-2 rounded-lg border"
+                                                >
+                                                    Re-upload Police PDF
+                                                </button>
+                                            )}
+                                            {aadhaarStatus === "Rejected" && (
+                                                <button
+                                                    onClick={() => setStep(2)}
+                                                    className="px-3 py-2 rounded-lg border"
+                                                >
+                                                    Re-upload Aadhaar/ID
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {policeStatus === "Approved" &&
+                                aadhaarStatus === "Approved" ? (
+                                    <button
+                                        onClick={() => setStep(4)}
+                                        className="mt-6 w-full px-4 py-2 rounded-lg text-white bg-emerald-600 hover:bg-emerald-700"
+                                    >
+                                        Continue
+                                    </button>
+                                ) : (
+                                    <div className="mt-6 text-center text-sm text-slate-500">
+                                        Waiting for admin approval…
+                                        (auto-refreshing)
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {step === 4 && (
+                            <div className="text-center">
+                                <div className="mx-auto w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 text-2xl font-bold mb-3">
+                                    ✓
+                                </div>
+                                <h2 className="text-2xl font-semibold mb-2">
+                                    You're Verified!
+                                </h2>
+                                <p className="text-slate-600 mb-6">
+                                    Both Police Verification and Aadhaar have
+                                    been approved. You can now access your
+                                    worker dashboard and start accepting jobs.
+                                </p>
+                                <button
+                                    onClick={goDashboard}
+                                    className="px-5 py-2.5 rounded-lg text-white bg-blue-600 hover:bg-blue-700"
+                                >
+                                    Go to Dashboard
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Footer actions for linear navigation */}
+                    <div className="mt-8 flex items-center justify-between">
+                        <button
+                            onClick={() => setStep((s) => Math.max(0, s - 1))}
+                            className="px-4 py-2 rounded-lg border disabled:opacity-40"
+                            disabled={step === 0 || step === 3 || step === 4}
+                        >
+                            Back
+                        </button>
+                        <div className="text-xs text-slate-500">
+                            Progress: {Math.round(progress)}%
+                        </div>
+                        <button
+                            onClick={() => setStep((s) => Math.min(4, s + 1))}
+                            className="px-4 py-2 rounded-lg border disabled:opacity-40"
+                            disabled={
+                                step === 0 || // use Accept & Continue button instead
+                                step === 1 || // use Upload button instead
+                                step === 2 || // use Upload button instead
+                                step === 3 || // auto-continue after approval
+                                step === 4
+                            }
+                        >
+                            Next
+                        </button>
+                    </div>
                 </div>
-
-                {(policeStatus === "Rejected" || aadhaarStatus === "Rejected") && (
-                  <div className="mt-4 p-3 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 text-sm">
-                    One or more documents were rejected. Please re-upload the correct document(s).
-                    <div className="mt-3 flex gap-2">
-                      {policeStatus === "Rejected" && (
-                        <button onClick={() => setStep(1)} className="px-3 py-2 rounded-lg border">Re-upload Police PDF</button>
-                      )}
-                      {aadhaarStatus === "Rejected" && (
-                        <button onClick={() => setStep(2)} className="px-3 py-2 rounded-lg border">Re-upload Aadhaar/ID</button>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {policeStatus === "Approved" && aadhaarStatus === "Approved" ? (
-                  <button onClick={() => setStep(4)} className="mt-6 w-full px-4 py-2 rounded-lg text-white bg-emerald-600 hover:bg-emerald-700">
-                    Continue
-                  </button>
-                ) : (
-                  <div className="mt-6 text-center text-sm text-slate-500">Waiting for admin approval… (auto-refreshing)</div>
-                )}
-              </div>
-            )}
-
-            {step === 4 && (
-              <div className="text-center">
-                <div className="mx-auto w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 text-2xl font-bold mb-3">✓</div>
-                <h2 className="text-2xl font-semibold mb-2">You're Verified!</h2>
-                <p className="text-slate-600 mb-6">Both Police Verification and Aadhaar have been approved. You can now access your worker dashboard and start accepting jobs.</p>
-                <button onClick={goDashboard} className="px-5 py-2.5 rounded-lg text-white bg-blue-600 hover:bg-blue-700">Go to Dashboard</button>
-              </div>
-            )}
-          </div>
-
-          {/* Footer actions for linear navigation */}
-          <div className="mt-8 flex items-center justify-between">
-            <button
-              onClick={() => setStep((s) => Math.max(0, s - 1))}
-              className="px-4 py-2 rounded-lg border disabled:opacity-40"
-              disabled={step === 0 || step === 3 || step === 4}
-            >
-              Back
-            </button>
-            <div className="text-xs text-slate-500">Progress: {Math.round(progress)}%</div>
-            <button
-              onClick={() => setStep((s) => Math.min(4, s + 1))}
-              className="px-4 py-2 rounded-lg border disabled:opacity-40"
-              disabled={
-                (step === 0) || // use Accept & Continue button instead
-                (step === 1) || // use Upload button instead
-                (step === 2) || // use Upload button instead
-                (step === 3) || // auto-continue after approval
-                step === 4
-              }
-            >
-              Next
-            </button>
-          </div>
+            </div>
         </div>
-      </div>
-    </div>
-  );
+    );
 }

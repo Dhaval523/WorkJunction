@@ -19,7 +19,9 @@ const workerSchema = new mongoose.Schema(
                 "Carpenter",
                 "Painter",
                 "Other",
+                "None",
             ],
+            default: "None",
             required: true,
         },
         skills: {
@@ -65,6 +67,8 @@ const workerSchema = new mongoose.Schema(
             enum: [
                 "TNC_PENDING",
                 "TNC_ACCEPTED",
+                "AADHAR_DOC_SUBMITTED",
+                "PHOTO_UPLOADED",
                 "POLICE_DOC_SUBMITTED",
                 "UNDER_REVIEW",
                 "APPROVED",
