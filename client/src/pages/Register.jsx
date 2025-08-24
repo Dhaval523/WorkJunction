@@ -20,16 +20,16 @@ const SignupPage = () => {
     useEffect(() => {
         const checkAuth = async () => {
             try {
-                await getUser();
-                if (user) {
-                    redirectBasedOnRole(user);
+                const response = await getUser();
+                if (response) {
+                    redirectBasedOnRole(response);
                 }
             } catch (error) {
                 // Handle silently - user needs to login
             }
         };
         checkAuth();
-    }, [user]);
+    }, []);
 
     // Handle role-based navigation
     const redirectBasedOnRole = (user) => {

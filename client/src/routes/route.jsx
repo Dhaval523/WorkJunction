@@ -10,6 +10,7 @@ import WorkerDashboard from "../pages/WorkerDashboard";
 import AdminPanel from "../pages/AdminPage";
 import WorkerVerification from "../pages/WorkerVerifaction";
 import VerificationPage from "../pages/MobileNumberVerificationPage";
+import UpdateWorkerProfileCard from "../components/UpdateWorkerProfileCard";
 
 const Routers = () => {
     return (
@@ -32,6 +33,10 @@ const Routers = () => {
                         element={<WorkerDashboard />}
                     />
                     <Route path="/otp" element={<VerificationPage />} />
+                    <Route
+                        path="/worker/profile"
+                        element={<UpdateWorkerProfileCard />}
+                    />
                 </Routes>
             </Router>
         </div>

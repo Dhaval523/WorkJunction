@@ -49,7 +49,7 @@ export const signup = async (req, res) => {
                 fullName,
                 email: user.email,
                 role: user.role,
-                isMobileVerified: user.isMobileNumberVerified,
+                isMobileNumberVerified: user.isMobileNumberVerified,
                 phone: user.phone,
             },
         });
@@ -90,7 +90,7 @@ export const signin = async (req, res) => {
                 name: `${user.firstName} ${user.lastName}`,
                 email: user.email,
                 role: user.role,
-                isMobileVerified: user.isMobileNumberVerified,
+                isMobileNumberVerified: user.isMobileNumberVerified,
                 phone: user.phone,
             },
         });

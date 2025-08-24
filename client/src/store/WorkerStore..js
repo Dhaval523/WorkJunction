@@ -1,10 +1,23 @@
 import { create } from "zustand";
 import axiosInstance from "../Helper/AxioInstanse";
+import toast from "react-hot-toast";
 
 const useWorkerStore = create((set) => ({
     worker: null,
     isLoading: false,
     verificationStatus: null,
+
+    getWorkerData: async () => {
+        try {
+            const response = await axiosInstance.get("/api/workers");
+            set({ worker: response.data });
+            return response.data;
+        } catch (error) {
+            console.error("Failed to fetch worker data:", error);
+            toast.error("Failed to fetch worker data");
+            return null;
+        }
+    },
 
     acceptTnC: async () => {
         set({ isLoading: true });
@@ -99,6 +112,25 @@ const useWorkerStore = create((set) => ({
         } catch (error) {
             console.error(
                 "Failed to fetch current stage:",
+                error?.response?.data || error.message
+            );
+            throw error;
+        } finally {
+            set({ isLoading: false });
+        }
+    },
+    updateWorkerProfile: async (profileData) => {
+        set({ isLoading: true });
+        try {
+            const response = await axiosInstance.patch(
+                "/api/workers/profile",
+                profileData
+            );
+            set({ worker: response.data.worker });
+            return response.data;
+        } catch (error) {
+            console.error(
+                "Profile update failed:",
                 error?.response?.data || error.message
             );
             throw error;

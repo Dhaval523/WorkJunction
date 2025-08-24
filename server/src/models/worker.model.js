@@ -43,6 +43,10 @@ const workerSchema = new mongoose.Schema(
             type: Boolean,
             default: true,
         },
+        isWorkerVerified: {
+            type: Boolean,
+            default: false,
+        },
         verification: {
             policeDocUrl: {
                 type: String, // URL to the police verification document

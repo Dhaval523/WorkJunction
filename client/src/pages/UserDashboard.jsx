@@ -36,6 +36,8 @@ const UserDashboard = () => {
         if (user) {
             if (user.role === "worker") {
                 navigate("/workerdashboard");
+            } else if (!user?.isMobileNumberVerified) {
+                navigate("/otp");
             } else if (user.role !== "customer") {
                 navigate("/login");
             }

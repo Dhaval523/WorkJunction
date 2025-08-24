@@ -39,11 +39,19 @@ const VerificationPage = () => {
             <OtpCard
                 phone={user.phone}
                 onVerify={async (otp) => {
-                    await verifyOtp({ otp, mobileNumber: user.phone });
-                    if (user?.role == "customer") {
-                        navigate("/userdashboard");
-                    } else {
-                        navigate("/verification");
+                    try {
+                        const result = await verifyOtp({
+                            otp,
+                            mobileNumber: user.phone,
+                        });
+                        if (!result) return;
+                        if (user?.role == "customer") {
+                            navigate("/userdashboard");
+                        } else {
+                            navigate("/verification");
+                        }
+                    } catch (error) {
+                        console.log(error);
                     }
                 }}
             />

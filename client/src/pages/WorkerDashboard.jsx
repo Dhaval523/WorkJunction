@@ -27,6 +27,7 @@ import { FiMapPin } from "react-icons/fi";
 import Menu from "../components/menu";
 import { useAuthStore } from "../store/AuthStore.js";
 import { useNavigate } from "react-router-dom";
+import useWorkerStore from "../store/WorkerStore..js";
 ChartJS.register(
     CategoryScale,
     LinearScale,
@@ -37,15 +38,15 @@ ChartJS.register(
 );
 
 const WorkerDashboard = () => {
-    const [worker, setWorker] = useState({
-        name: "Rajesh Kumar",
-        profession: "Carpenter",
-        rating: 4.9,
-        totalJobs: 127,
-        earnings: 234500,
-        availability: true,
-        upcomingJobs: 3,
-    });
+    // const [worker, setWorker] = useState({
+    //     name: "Rajesh Kumar",
+    //     profession: "Carpenter",
+    //     rating: 4.9,
+    //     totalJobs: 127,
+    //     earnings: 234500,
+    //     availability: true,
+    //     upcomingJobs: 3,
+    // });
 
     const [bookings, setBookings] = useState([
         {
@@ -84,6 +85,8 @@ const WorkerDashboard = () => {
     const [activeTab, setActiveTab] = useState("overview");
 
     const { getUser, user, logout } = useAuthStore();
+    const { getWorkerData, worker } = useWorkerStore();
+    const [loading, setLoading] = useState(true);
 
     const navigate = useNavigate();
     useEffect(() => {
@@ -102,11 +105,30 @@ const WorkerDashboard = () => {
         if (user) {
             if (user.role === "customer") {
                 navigate("/userdashboard");
-            } else if (user.role !== "worker") {
-                navigate("/login");
+            } else if (!user?.isMobileNumberVerified) {
+                navigate("/otp");
+            } else if (user.role === "worker") {
+                // Add this check for worker verification
+                const checkWorkerVerification = async () => {
+                    try {
+                        const workerData = await getWorkerData();
+                        if (!workerData?.isWorkerVerified) {
+                            navigate("/verification");
+                        }
+                    } catch (error) {
+                        console.error(
+                            "Error checking worker verification:",
+                            error
+                        );
+                        navigate("/verification");
+                    }
+                };
+
+                checkWorkerVerification();
             }
         }
-    }, [user, navigate]);
+        setLoading(false);
+    }, [user, navigate, getWorkerData]);
 
     // Chart data
     const earningsData = {
@@ -149,6 +171,10 @@ const WorkerDashboard = () => {
         navigate("/");
     };
 
+    if (loading) {
+        return <div>Loading...</div>;
+    }
+
     return (
         <div className="min-h-screen bg-gray-50">
             <div className="flex">
@@ -160,7 +186,7 @@ const WorkerDashboard = () => {
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900">
-                            Welcome back, {worker.name}
+                            Welcome back, {worker?.name}
                         </h1>
                         <p className="text-gray-600">
                             Here's your work overview
@@ -204,7 +230,7 @@ const WorkerDashboard = () => {
                                     Total Earnings
                                 </p>
                                 <p className="text-2xl font-bold">
-                                    ₹{worker.earnings.toLocaleString()}
+                                    ₹{worker?.earnings?.toLocaleString()}
                                 </p>
                             </div>
                             <div className="bg-indigo-100 p-3 rounded-lg">
@@ -223,7 +249,7 @@ const WorkerDashboard = () => {
                                     Completed Jobs
                                 </p>
                                 <p className="text-2xl font-bold">
-                                    {worker.totalJobs}
+                                    {worker?.totalJobs}
                                 </p>
                             </div>
                             <div className="bg-green-100 p-3 rounded-lg">
@@ -244,7 +270,7 @@ const WorkerDashboard = () => {
                                 <div className="flex items-center">
                                     <FiStar className="text-yellow-400 mr-1" />
                                     <span className="text-2xl font-bold">
-                                        {worker.rating}
+                                        {worker?.rating}
                                     </span>
                                 </div>
                             </div>
@@ -264,7 +290,7 @@ const WorkerDashboard = () => {
                                     Upcoming Jobs
                                 </p>
                                 <p className="text-2xl font-bold">
-                                    {worker.upcomingJobs}
+                                    {worker?.upcomingJobs}
                                 </p>
                             </div>
                             <div className="bg-blue-100 p-3 rounded-lg">

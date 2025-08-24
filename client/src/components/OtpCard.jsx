@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { BsPhone } from "react-icons/bs";
+import { useAuthStore } from "../store/AuthStore";
 
 const OtpCard = ({ onVerify, phone }) => {
     const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+    const { sendOtp, user } = useAuthStore();
 
     const handleChange = (element, index) => {
         if (isNaN(element.value)) return false;
@@ -28,6 +30,14 @@ const OtpCard = ({ onVerify, phone }) => {
         e.preventDefault();
         const otpString = otp.join("");
         onVerify(otpString);
+    };
+
+    const handelResendOtp = async () => {
+        try {
+            await sendOtp({ mobileNumber: user.phone });
+        } catch (error) {
+            console.log(error);
+        }
     };
 
     return (
@@ -87,7 +97,7 @@ const OtpCard = ({ onVerify, phone }) => {
                     </p>
                     <button
                         className="text-sm text-indigo-600 hover:underline font-medium disabled:text-gray-400"
-                        disabled
+                        onClick={handelResendOtp}
                     >
                         Resend OTP
                     </button>

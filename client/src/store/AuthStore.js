@@ -29,10 +29,7 @@ const useAuthStore = create((set, get) => ({
     login: async (data) => {
         set({ isLogin: true });
         try {
-            const response = await axiosInstance.post(
-                "/api/auth/sign-in",
-                data
-            );
+            const response = await axiosInstance.post("/api/auth/login", data);
             set({ user: response.data.user });
             toast.success("Login Successful");
             return response?.data?.user;
@@ -87,6 +84,7 @@ const useAuthStore = create((set, get) => ({
         try {
             const response = await axiosInstance.get("/api/auth/user");
             set({ user: response.data.user });
+            return response?.data?.user;
         } catch (error) {
             set({ user: null });
             console.error(
@@ -120,7 +118,7 @@ const useAuthStore = create((set, get) => ({
                 "Failes to send otp",
                 error?.response?.data || error.message
             );
-            throw error;
+            toast.error(error?.response?.data?.message);
         }
     },
 
@@ -130,13 +128,16 @@ const useAuthStore = create((set, get) => ({
                 otp,
                 mobileNumber,
             });
+
             toast.success(response.data.message);
+            return true;
         } catch (error) {
             console.error(
                 "Failed to verify otp",
                 error?.response?.data || error.message
             );
             toast.error(error?.response?.data?.message);
+            return false;
         }
     },
 }));
