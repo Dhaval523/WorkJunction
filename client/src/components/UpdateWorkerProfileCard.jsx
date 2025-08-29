@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import useWorkerStore from "../store/WorkerStore.";
 import { motion } from "framer-motion";
-import { FiSave, FiX } from "react-icons/fi";
+import { FiEdit2, FiSave, FiX } from "react-icons/fi";
 
 const categories = [
     "Plumber",
@@ -54,21 +54,40 @@ const validateField = (name, value) => {
     }
 };
 
-export default function UpdateProfileCard({ onClose }) {
-    const { updateWorkerProfile, worker, isLoading } = useWorkerStore();
+export default function UpdateWorkerProfile({ onClose }) {
+    const { updateWorkerProfile, worker, getWorkerData, isLoading } =
+        useWorkerStore();
+    const [isEditMode, setIsEditMode] = useState(false);
     const [success, setSuccess] = useState("");
     const [error, setError] = useState("");
     const [touchedFields, setTouchedFields] = useState({});
     const [fieldErrors, setFieldErrors] = useState({});
 
     const [formData, setFormData] = useState({
-        category: worker?.category || "",
-        skills: worker?.skills?.join(", ") || "",
-        experience: worker?.experience || "",
-        hourlyRate: worker?.hourlyRate || "",
-        bio: worker?.bio || "",
-        languagesSpoken: worker?.languagesSpoken?.join(", ") || "",
+        category: "",
+        skills: "",
+        experience: "",
+        hourlyRate: "",
+        bio: "",
+        languagesSpoken: "",
     });
+
+    useEffect(() => {
+        const loadWorkerData = async () => {
+            const data = await getWorkerData();
+            if (data) {
+                setFormData({
+                    category: data.category || "",
+                    skills: data.skills?.join(", ") || "",
+                    experience: data.experience || "",
+                    hourlyRate: data.hourlyRate || "",
+                    bio: data.bio || "",
+                    languagesSpoken: data.languagesSpoken?.join(", ") || "",
+                });
+            }
+        };
+        loadWorkerData();
+    }, [getWorkerData]);
 
     const validateForm = () => {
         const errors = {};
@@ -146,22 +165,217 @@ export default function UpdateProfileCard({ onClose }) {
             );
         }
     };
+    const DisplayField = ({ label, value, icon }) => (
+        <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-500 mb-1">
+                {label}
+            </label>
+            <div className="text-gray-900 border rounded-lg p-3 bg-gray-50">
+                {icon && <span className="mr-2">{icon}</span>}
+                {value || "Not specified"}
+            </div>
+        </div>
+    );
+
+    if (!isEditMode) {
+        return (
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="bg-white rounded-xl shadow-lg p-6 relative max-w-2xl mx-auto"
+            >
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-xl font-semibold">Worker Profile</h3>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => setIsEditMode(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100"
+                        >
+                            <FiEdit2 size={16} />
+                            Edit Profile
+                        </button>
+                        <button
+                            onClick={onClose}
+                            className="text-gray-400 hover:text-gray-600"
+                        >
+                            <FiX size={24} />
+                        </button>
+                    </div>
+                </div>
+
+                <div className="space-y-6">
+                    <div className="grid grid-cols-2 gap-6">
+                        <DisplayField
+                            label="Category"
+                            value={formData.category}
+                        />
+                        <DisplayField
+                            label="Experience"
+                            value={`${formData.experience} years`}
+                        />
+                    </div>
+
+                    <DisplayField label="Skills" value={formData.skills} />
+
+                    <DisplayField
+                        label="Languages"
+                        value={formData.languagesSpoken}
+                    />
+
+                    <DisplayField
+                        label="Hourly Rate"
+                        value={`₹${formData.hourlyRate}/hr`}
+                    />
+
+                    <DisplayField label="Bio" value={formData.bio} />
+                </div>
+            </motion.div>
+        );
+    }
+    const Field = ({
+        label,
+        name,
+        type = "text",
+        placeholder,
+        icon,
+        options,
+    }) => {
+        const value = formData[name];
+        const error = fieldErrors[name];
+        const isTextArea = type === "textarea";
+
+        const commonClasses = `w-full px-3 py-2 rounded-lg border 
+            ${error ? "border-red-500" : "border-gray-300"} 
+            ${!isEditMode ? "bg-gray-50" : ""}
+            ${
+                isEditMode
+                    ? "focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    : ""
+            }`;
+
+        const renderField = () => {
+            if (!isEditMode) {
+                return (
+                    <div className={commonClasses}>
+                        {icon && <span className="mr-2">{icon}</span>}
+                        {name === "hourlyRate" && "₹"}
+                        {value || "Not specified"}
+                        {name === "hourlyRate" && value && "/hr"}
+                        {name === "experience" && value && " years"}
+                    </div>
+                );
+            }
+
+            if (type === "select") {
+                return (
+                    <select
+                        name={name}
+                        value={value}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        className={commonClasses}
+                        disabled={!isEditMode}
+                    >
+                        <option value="">Select {label}</option>
+                        {options?.map((opt) => (
+                            <option key={opt} value={opt}>
+                                {opt}
+                            </option>
+                        ))}
+                    </select>
+                );
+            }
+
+            if (isTextArea) {
+                return (
+                    <textarea
+                        name={name}
+                        value={value}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        className={commonClasses}
+                        rows="4"
+                        placeholder={placeholder}
+                        disabled={!isEditMode}
+                    />
+                );
+            }
+
+            return (
+                <input
+                    type={type}
+                    name={name}
+                    value={value}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    className={commonClasses}
+                    placeholder={placeholder}
+                    disabled={!isEditMode}
+                    {...(type === "number" && {
+                        min: name === "hourlyRate" ? "100" : "0",
+                        max: name === "hourlyRate" ? "10000" : "50",
+                        step: name === "hourlyRate" ? "50" : "1",
+                    })}
+                />
+            );
+        };
+
+        return (
+            <div className="space-y-1">
+                <label className="block text-sm font-medium text-gray-700">
+                    {label} {isEditMode && "*"}
+                </label>
+                {renderField()}
+                {error && isEditMode && (
+                    <p className="text-sm text-red-600">{error}</p>
+                )}
+                {name === "bio" && (
+                    <p
+                        className={`text-xs ${
+                            value.length > 500
+                                ? "text-red-600"
+                                : "text-gray-500"
+                        }`}
+                    >
+                        {value.length}/500 characters
+                    </p>
+                )}
+            </div>
+        );
+    };
 
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="bg-white rounded-xl shadow-lg p-6 relative max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-xl shadow-lg p-6 relative max-w-2xl mx-auto"
         >
-            <button
-                onClick={onClose}
-                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
-            >
-                <FiX size={24} />
-            </button>
-
-            <h3 className="text-xl font-semibold mb-6">Update Work Profile</h3>
+            <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-semibold">
+                    {isEditMode ? "Edit Profile" : "Worker Profile"}
+                </h3>
+                <div className="flex gap-2">
+                    {!isEditMode ? (
+                        <button
+                            onClick={() => setIsEditMode(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100"
+                        >
+                            <FiEdit2 size={16} />
+                            Edit Profile
+                        </button>
+                    ) : null}
+                    <button
+                        onClick={
+                            isEditMode ? () => setIsEditMode(false) : onClose
+                        }
+                        className="text-gray-400 hover:text-gray-600"
+                    >
+                        <FiX size={24} />
+                    </button>
+                </div>
+            </div>
 
             {error && (
                 <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm">
@@ -176,192 +390,61 @@ export default function UpdateProfileCard({ onClose }) {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-6">
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Category *
-                    </label>
-                    <select
+                <div className="grid grid-cols-2 gap-6">
+                    <Field
+                        label="Category"
                         name="category"
-                        value={formData.category}
-                        onChange={handleChange}
-                        onBlur={handleBlur}
-                        className={`w-full px-3 py-2 rounded-lg border ${
-                            fieldErrors.category
-                                ? "border-red-500"
-                                : "border-gray-300"
-                        } focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}
-                    >
-                        <option value="">Select Category</option>
-                        {categories.map((cat) => (
-                            <option key={cat} value={cat}>
-                                {cat}
-                            </option>
-                        ))}
-                    </select>
-                    {fieldErrors.category && (
-                        <p className="mt-1 text-sm text-red-600">
-                            {fieldErrors.category}
-                        </p>
-                    )}
-                </div>
-
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Skills (comma separated) *
-                    </label>
-                    <input
-                        type="text"
-                        name="skills"
-                        value={formData.skills}
-                        onChange={handleChange}
-                        onBlur={handleBlur}
-                        className={`w-full px-3 py-2 rounded-lg border ${
-                            fieldErrors.skills
-                                ? "border-red-500"
-                                : "border-gray-300"
-                        } focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}
-                        placeholder="e.g. Pipe Fitting, Bathroom Installation"
+                        type="select"
+                        options={categories}
                     />
-                    {fieldErrors.skills && (
-                        <p className="mt-1 text-sm text-red-600">
-                            {fieldErrors.skills}
-                        </p>
-                    )}
+                    <Field label="Experience" name="experience" type="number" />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Experience (years) *
-                        </label>
-                        <input
-                            type="number"
-                            name="experience"
-                            value={formData.experience}
-                            onChange={handleChange}
-                            onBlur={handleBlur}
-                            className={`w-full px-3 py-2 rounded-lg border ${
-                                fieldErrors.experience
-                                    ? "border-red-500"
-                                    : "border-gray-300"
-                            } focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}
-                            min="0"
-                            max="50"
-                        />
-                        {fieldErrors.experience && (
-                            <p className="mt-1 text-sm text-red-600">
-                                {fieldErrors.experience}
-                            </p>
-                        )}
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Hourly Rate (₹) *
-                        </label>
-                        <input
-                            type="number"
-                            name="hourlyRate"
-                            value={formData.hourlyRate}
-                            onChange={handleChange}
-                            onBlur={handleBlur}
-                            className={`w-full px-3 py-2 rounded-lg border ${
-                                fieldErrors.hourlyRate
-                                    ? "border-red-500"
-                                    : "border-gray-300"
-                            } focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}
-                            min="100"
-                            max="10000"
-                            step="50"
-                        />
-                        {fieldErrors.hourlyRate && (
-                            <p className="mt-1 text-sm text-red-600">
-                                {fieldErrors.hourlyRate}
-                            </p>
-                        )}
-                    </div>
-                </div>
+                <Field
+                    label="Skills"
+                    name="skills"
+                    placeholder="e.g. Pipe Fitting, Bathroom Installation"
+                />
 
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Bio *
-                    </label>
-                    <textarea
-                        name="bio"
-                        value={formData.bio}
-                        onChange={handleChange}
-                        onBlur={handleBlur}
-                        className={`w-full px-3 py-2 rounded-lg border ${
-                            fieldErrors.bio
-                                ? "border-red-500"
-                                : "border-gray-300"
-                        } focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}
-                        rows="4"
-                        placeholder="Brief description about your work experience and expertise"
-                    />
-                    <div className="flex justify-between mt-1">
-                        {fieldErrors.bio && (
-                            <p className="text-sm text-red-600">
-                                {fieldErrors.bio}
-                            </p>
-                        )}
-                        <p
-                            className={`text-xs ${
-                                formData.bio.length > 500
-                                    ? "text-red-600"
-                                    : "text-gray-500"
+                <Field
+                    label="Languages Spoken"
+                    name="languagesSpoken"
+                    placeholder="e.g. English, Hindi, Gujarati"
+                />
+
+                <Field label="Hourly Rate" name="hourlyRate" type="number" />
+
+                <Field
+                    label="Bio"
+                    name="bio"
+                    type="textarea"
+                    placeholder="Brief description about your work experience and expertise"
+                />
+
+                {isEditMode && (
+                    <div className="flex justify-end gap-3 mt-6">
+                        <button
+                            type="button"
+                            onClick={() => setIsEditMode(false)}
+                            className="px-4 py-2 rounded-lg border hover:bg-gray-50"
+                            disabled={isLoading}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={isLoading}
+                            className={`flex items-center justify-center gap-2 px-6 py-2 rounded-lg text-white ${
+                                isLoading
+                                    ? "bg-gray-400"
+                                    : "bg-indigo-600 hover:bg-indigo-700"
                             }`}
                         >
-                            {formData.bio.length}/500 characters
-                        </p>
+                            <FiSave size={18} />
+                            {isLoading ? "Updating..." : "Update Profile"}
+                        </button>
                     </div>
-                </div>
-
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Languages Spoken (comma separated) *
-                    </label>
-                    <input
-                        type="text"
-                        name="languagesSpoken"
-                        value={formData.languagesSpoken}
-                        onChange={handleChange}
-                        onBlur={handleBlur}
-                        className={`w-full px-3 py-2 rounded-lg border ${
-                            fieldErrors.languagesSpoken
-                                ? "border-red-500"
-                                : "border-gray-300"
-                        } focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}
-                        placeholder="e.g. English, Hindi, Gujarati"
-                    />
-                    {fieldErrors.languagesSpoken && (
-                        <p className="mt-1 text-sm text-red-600">
-                            {fieldErrors.languagesSpoken}
-                        </p>
-                    )}
-                </div>
-
-                <div className="flex justify-end gap-3 mt-6">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="px-4 py-2 rounded-lg border hover:bg-gray-50"
-                        disabled={isLoading}
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        type="submit"
-                        disabled={isLoading}
-                        className={`flex items-center justify-center gap-2 px-6 py-2 rounded-lg text-white ${
-                            isLoading
-                                ? "bg-gray-400"
-                                : "bg-indigo-600 hover:bg-indigo-700"
-                        }`}
-                    >
-                        <FiSave size={18} />
-                        {isLoading ? "Updating..." : "Update Profile"}
-                    </button>
-                </div>
+                )}
             </form>
         </motion.div>
     );

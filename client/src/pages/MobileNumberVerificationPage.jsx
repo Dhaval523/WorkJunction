@@ -3,10 +3,21 @@ import { motion } from "framer-motion";
 import OtpCard from "../components/OtpCard";
 import { useAuthStore } from "../store/AuthStore";
 import { useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 
 const VerificationPage = () => {
-    const { user, verifyOtp } = useAuthStore();
+    const { user, verifyOtp, getUser } = useAuthStore();
     const navigate = useNavigate();
+
+    useEffect(() => {
+        const getUserData = async () => {
+            const user = await getUser();
+            if (user?.isMobileNumberVerified) {
+                navigate("/userdashboard");
+            }
+        };
+        getUserData();
+    }, []);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4 relative overflow-hidden">
@@ -37,12 +48,12 @@ const VerificationPage = () => {
             />
 
             <OtpCard
-                phone={user.phone}
+                phone={user?.phone}
                 onVerify={async (otp) => {
                     try {
                         const result = await verifyOtp({
                             otp,
-                            mobileNumber: user.phone,
+                            mobileNumber: user?.phone,
                         });
                         if (!result) return;
                         if (user?.role == "customer") {
