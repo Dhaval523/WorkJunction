@@ -3,6 +3,7 @@ import { removeToken, setToken } from "../utils/utils.js";
 import twilio from "twilio";
 import dotenv from "dotenv";
 import { Worker } from "../models/worker.model.js";
+import axios from "axios";
 dotenv.config();
 
 // 📝 Signup Controller
@@ -106,52 +107,69 @@ export const logout = (req, res) => {
 };
 
 export const sendOtp = async (req, res) => {
-    const { mobileNumber } = req.body;
-    try {
-        const client = twilio(
-            process.env.TWILIO_ACCOUNT_SID,
-            process.env.TWILIO_AUTH_TOKEN
-        );
-        const verification = await client.verify.v2
-            .services(process.env.TWILIO_SERVICE_ID)
-            .verifications.create({
-                to: `+91${mobileNumber}`,
-                channel: "sms",
-            });
-        console.log(verification.sid);
-        res.status(200).json({ message: "OTP sent successfully" });
-    } catch (error) {
-        console.error("Failed to send otp:", error);
-        res.status(500).json({ message: "Failed to send otp" });
+  const { mobileNumber } = req.body;
+
+  try {
+    const options = {
+      method: 'POST',
+      url: 'https://sms-verify3.p.rapidapi.com/send-numeric-verify',
+      headers: {
+        'content-type': 'application/json',
+        'X-Rapidapi-Key': process.env.RAPIDAPI_KEY,
+        'X-Rapidapi-Host': 'sms-verify3.p.rapidapi.com'
+      },
+      data: { target : `+91${mobileNumber}` }
+    };
+
+    const response = await axios.request(options);
+    const { verify_code, status } = response.data;
+
+    if (status !== "success") {
+      return res.status(400).json({ message: "Failed to send OTP" });
     }
+
+    // Store OTP in DB (with expiry of 5 mins)
+    const user = await User.findOneAndUpdate(
+      { phone: mobileNumber },
+      { otp: verify_code, otpExpires: Date.now() + 5 * 60 * 1000 },
+      { new: true, upsert: true }
+    );
+
+    res.json({ message: "OTP sent successfully" });
+  } catch (error) {
+    console.error("Error sending OTP:", error);
+    res.status(500).json({ message: "Failed to send OTP" });
+  }
+};
+export const verifyOtp = async (req, res) => {
+  const { mobileNumber, otp } = req.body;
+
+  try {
+    const user = await User.findOne({ phone: mobileNumber });
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (!user.otp || user.otpExpires < Date.now()) {
+      return res.status(400).json({ message: "OTP expired, please request again" });
+    }
+
+    if (user.otp !== otp) {
+      return res.status(400).json({ message: "Invalid OTP" });
+    }
+
+    // Mark user as verified
+    user.isMobileNumberVerified = true;
+    user.otp = null; // clear OTP
+    user.otpExpires = null;
+    await user.save();
+
+    res.json({ message: "OTP verified successfully" });
+  } catch (error) {
+    console.error("Error verifying OTP:", error);
+    res.status(500).json({ message: "Failed to verify OTP" });
+  }
 };
 
-export const verifyOtp = async (req, res) => {
-    const { mobileNumber, otp } = req.body;
-    try {
-        const client = twilio(
-            process.env.TWILIO_ACCOUNT_SID,
-            process.env.TWILIO_AUTH_TOKEN
-        );
-        const verifiedResponse = await client.verify.v2
-            .services(process.env.TWILIO_SERVICE_ID)
-            .verificationChecks.create({
-                to: `+91${mobileNumber}`,
-                code: otp,
-            });
-        console.log(verifiedResponse.status);
-        if (verifiedResponse.status !== "approved") {
-            return res.status(400).json({ message: "Invalid OTP" });
-        }
-        const user = await User.findOne({ phone: mobileNumber });
-        user.isMobileNumberVerified = true;
-        await user.save();
-        res.status(200).json({ message: "OTP verified successfully" });
-    } catch (error) {
-        console.error("Failed to verify otp:", error);
-        res.status(500).json({ message: "Failed to verify otp" });
-    }
-};
 
 export const getUserData = async (req, res) => {
     try {
