@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { FiSearch, FiArrowRight } from "react-icons/fi";
@@ -15,7 +16,7 @@ import { useNavigate } from "react-router-dom";
 
 const UserDashboard = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [activeCategory, setActiveCategory] = useState("all");
+    const [userCity, setUserCity] = useState(null);
 
     const { getUser, user } = useAuthStore();
 
@@ -43,6 +44,30 @@ const UserDashboard = () => {
             }
         }
     }, [user, navigate]);
+
+    const handleGetLocation = () => {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(async (position) => {
+                const { latitude, longitude } = position.coords;
+                try {
+                    const res = await fetch(
+                        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10`
+                    );
+                    const data = await res.json();
+                    setUserCity(data.address.city || data.address.town || data.address.village || "Unknown");
+                } catch (err) {
+                    console.error("Error fetching city:", err);
+                    setUserCity("Unknown");
+                }
+            }, (error) => {
+                console.error("Geolocation error:", error);
+                alert("Unable to retrieve your location. Please check permissions.");
+            });
+        } else {
+            console.log("Geolocation not supported");
+            alert("Geolocation is not supported by your browser.");
+        }
+    };
 
     const categories = [
         {
@@ -87,6 +112,7 @@ const UserDashboard = () => {
             availability: "Tomorrow",
             image: "https://images.unsplash.com/photo-1581291518633-83b4ebd1d83e?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80",
             avatar: "https://randomuser.me/api/portraits/men/32.jpg",
+            category: "carpenters",
         },
         {
             id: 2,
@@ -102,6 +128,7 @@ const UserDashboard = () => {
             availability: "Today",
             image: "https://images.unsplash.com/photo-1605152276897-4f618f831968?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80",
             avatar: "https://randomuser.me/api/portraits/men/44.jpg",
+            category: "electricians",
         },
         {
             id: 3,
@@ -117,6 +144,7 @@ const UserDashboard = () => {
             availability: "This Weekend",
             image: "https://images.unsplash.com/photo-1517705008128-361805f42e86?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80",
             avatar: "https://randomuser.me/api/portraits/men/67.jpg",
+            category: "painters",
         },
     ];
 
@@ -139,6 +167,14 @@ const UserDashboard = () => {
                 duration: 0.5,
             },
         },
+    };
+
+    const getFilteredWorkers = (categoryId) => {
+        return workers.filter(
+            (w) =>
+                (categoryId === "all" || w.category === categoryId) &&
+                (!userCity || w.location.includes(userCity))
+        );
     };
 
     return (
@@ -231,6 +267,21 @@ const UserDashboard = () => {
                     </motion.div>
                 </section>
 
+                {/* Location Selection */}
+                <section className="mb-10 text-center">
+                    <button
+                        onClick={handleGetLocation}
+                        className="px-6 py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-md"
+                    >
+                        Select My Location
+                    </button>
+                    {userCity && (
+                        <p className="mt-4 text-gray-700">
+                            Showing workers in: {userCity}
+                        </p>
+                    )}
+                </section>
+
                 {/* Categories */}
                 <section className="mb-20">
                     <motion.h2
@@ -255,14 +306,9 @@ const UserDashboard = () => {
                             <motion.button
                                 key={category.id}
                                 variants={itemVariants}
-                                onClick={() => setActiveCategory(category.id)}
                                 whileHover={{ y: -5 }}
                                 whileTap={{ scale: 0.95 }}
-                                className={`flex flex-col items-center justify-center p-6 rounded-xl border-2 transition-all ${
-                                    activeCategory === category.id
-                                        ? "border-indigo-500 bg-indigo-50 text-indigo-700 shadow-md"
-                                        : "border-gray-200 hover:border-indigo-300 bg-white hover:shadow-md"
-                                }`}
+                                className={`flex flex-col items-center justify-center p-6 rounded-xl border-2 transition-all border-gray-200 hover:border-indigo-300 bg-white hover:shadow-md`}
                             >
                                 <div className="text-3xl mb-3 text-indigo-600">
                                     {category.icon}
@@ -275,7 +321,54 @@ const UserDashboard = () => {
                     </motion.div>
                 </section>
 
-                {/* Top Workers */}
+                {/* Category-wise Worker Sections */}
+                {categories
+                    .filter((category) => category.id !== "all")
+                    .map((category) => (
+                        <section key={category.id} className="mb-20">
+                            <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
+                                <motion.h2
+                                    initial={{ opacity: 0, y: 20 }}
+                                    whileInView={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.5 }}
+                                    viewport={{ once: true }}
+                                    className="text-3xl font-bold text-gray-900 mb-4 md:mb-0"
+                                >
+                                    {category.name}
+                                </motion.h2>
+                                <motion.a
+                                    initial={{ opacity: 0, y: 20 }}
+                                    whileInView={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.5 }}
+                                    viewport={{ once: true }}
+                                    href="#"
+                                    className="flex items-center text-indigo-600 hover:text-indigo-800 font-medium"
+                                >
+                                    View all in {category.name}{" "}
+                                    <FiArrowRight className="ml-2" />
+                                </motion.a>
+                            </div>
+
+                            <motion.div
+                                variants={containerVariants}
+                                initial="hidden"
+                                whileInView="visible"
+                                viewport={{ once: true, margin: "-100px" }}
+                                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
+                            >
+                                {getFilteredWorkers(category.id).map((worker) => (
+                                    <WorkerCard key={worker.id} worker={worker} />
+                                ))}
+                                {getFilteredWorkers(category.id).length === 0 && (
+                                    <p className="text-gray-500 col-span-full text-center">
+                                        No workers found in this category{userCity ? ` for ${userCity}` : ""}.
+                                    </p>
+                                )}
+                            </motion.div>
+                        </section>
+                    ))}
+
+                {/* Featured Professionals (as fallback or all) */}
                 <section>
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
                         <motion.h2
@@ -310,9 +403,14 @@ const UserDashboard = () => {
                         viewport={{ once: true, margin: "-100px" }}
                         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
                     >
-                        {workers.map((worker) => (
+                        {getFilteredWorkers("all").map((worker) => (
                             <WorkerCard key={worker.id} worker={worker} />
                         ))}
+                        {getFilteredWorkers("all").length === 0 && (
+                            <p className="text-gray-500 col-span-full text-center">
+                                No featured professionals found{userCity ? ` for ${userCity}` : ""}.
+                            </p>
+                        )}
                     </motion.div>
                 </section>
             </main>

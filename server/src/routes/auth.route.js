@@ -6,6 +6,8 @@ import {
     signin,
     signup,
     verifyOtp,
+    insertDummyData
+
 } from "../controllers/auth.controller.js";
 import { requireAuth } from "../middleware/auth.middleware.js";
 
@@ -17,5 +19,6 @@ router.post("/logout", logout);
 router.post("/send-otp", requireAuth, sendOtp);
 router.post("/verify-otp", requireAuth, verifyOtp);
 router.get("/user", requireAuth, getUserData);
+router.post("/insert", insertDummyData); 
 
 export default router;
