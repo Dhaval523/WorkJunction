@@ -5,14 +5,7 @@ const ObjectId = mongoose.Types.ObjectId;
 const updateWorkerProfile = async (req, res) => {
     try {
         const userId = req.user._id;
-        const {
-            category,
-            skills,
-            experience,
-            hourlyRate,
-            bio,
-            languagesSpoken,
-        } = req.body;
+        const { skills, experience, bio, languagesSpoken } = req.body;
 
         // Find worker by userId
         let worker = await Worker.findOne({ user: userId });
@@ -26,10 +19,8 @@ const updateWorkerProfile = async (req, res) => {
 
         // Update fields
         const updates = {
-            category: category || worker.category,
             skills: skills || worker.skills,
             experience: experience || worker.experience,
-            hourlyRate: hourlyRate || worker.hourlyRate,
             bio: bio || worker.bio,
             languagesSpoken: languagesSpoken || worker.languagesSpoken,
         };

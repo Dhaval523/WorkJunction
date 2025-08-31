@@ -138,6 +138,29 @@ const useWorkerStore = create((set) => ({
             set({ isLoading: false });
         }
     },
+    uploadProfilePhoto: async (file) => {
+        set({ isLoading: true });
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+
+            const response = await axiosInstance.post(
+                "/api/workers/upload-profile-photo",
+                formData
+            );
+            set({ worker: { ...response.data.worker } });
+            return response.data;
+        } catch (error) {
+            console.error(
+                "Profile photo upload failed:",
+                error?.response?.data || error.message
+            );
+            toast.error("Failed to upload profile photo");
+            throw error;
+        } finally {
+            set({ isLoading: false });
+        }
+    },
 }));
 
 export default useWorkerStore;

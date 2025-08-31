@@ -167,12 +167,15 @@ const uploadProfilePhoto = async (req, res) => {
             });
         }
 
+        // Update both the verification selfie image and stage
+        worker.verification.selfieImage = fileUrl;
         worker.verificationStage = "PHOTO_UPLOADED";
         await worker.save();
 
         return res.status(200).json({
             success: true,
             message: "Profile photo uploaded successfully",
+            worker,
             fileUrl,
         });
     } catch (error) {
@@ -258,39 +261,39 @@ const getCurrentStage = async (req, res) => {
         const userId = req.user._id;
 
         const worker = await Worker.findOne({ user: userId })
-            .select('verificationStage verification')
+            .select("verificationStage verification")
             .lean();
 
         if (!worker) {
             return res.status(404).json({
                 success: false,
-                message: "Worker not found"
+                message: "Worker not found",
             });
         }
 
-        // Map verification stage to step number
+        // Modified stage mapping to reflect selfie step
         const stageToStep = {
-            "TNC_PENDING": 0,
-            "TNC_ACCEPTED": 1,
-            "POLICE_DOC_SUBMITTED": 2,
-            "AADHAR_DOC_SUBMITTED": 2,
-            "PHOTO_UPLOADED": 2,
-            "UNDER_REVIEW": 3,
-            "APPROVED": 4,
-            "REJECTED": 3
+            TNC_PENDING: 0,
+            TNC_ACCEPTED: 1,
+            PHOTO_UPLOADED: 2, // Changed order
+            POLICE_DOC_SUBMITTED: 3,
+            AADHAR_DOC_SUBMITTED: 3,
+            UNDER_REVIEW: 4,
+            APPROVED: 5,
+            REJECTED: 4,
         };
 
         return res.status(200).json({
             success: true,
             currentStep: stageToStep[worker.verificationStage] || 0,
             verificationStage: worker.verificationStage,
-            verification: worker.verification
+            verification: worker.verification,
         });
     } catch (error) {
         return res.status(500).json({
             success: false,
             message: "Error fetching current stage",
-            error: error.message
+            error: error.message,
         });
     }
 };
@@ -303,5 +306,5 @@ export {
     uploadProfilePhoto,
     reviewWorkerVerification,
     getVerificationStatus,
-    getCurrentStage
+    getCurrentStage,
 };

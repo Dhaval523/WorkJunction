@@ -10,13 +10,13 @@ const LoginPage = () => {
         password: "",
     });
 
-    const { login, user, googleLogin, getUser } = useAuthStore();
+    const { login, googleLogin, getUser } = useAuthStore();
     const navigate = useNavigate();
 
     useEffect(() => {
         const checkAuth = async () => {
             try {
-                await getUser();
+                const user = await getUser();
                 if (user) {
                     redirectBasedOnRole(user);
                 }
@@ -25,7 +25,7 @@ const LoginPage = () => {
             }
         };
         checkAuth();
-    }, [user]);
+    }, []);
 
     // Handle role-based navigation
     const redirectBasedOnRole = (user) => {

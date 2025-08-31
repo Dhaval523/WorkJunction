@@ -8,22 +8,6 @@ const workerSchema = new mongoose.Schema(
             required: true,
             unique: true,
         },
-
-        // Work category and skills
-        category: {
-            type: String,
-            enum: [
-                "Plumber",
-                "Electrician",
-                "Cleaner",
-                "Carpenter",
-                "Painter",
-                "Other",
-                "None",
-            ],
-            default: "None",
-            required: true,
-        },
         skills: {
             type: [String],
             default: [],
@@ -33,12 +17,6 @@ const workerSchema = new mongoose.Schema(
             min: 0,
             default: 0,
         },
-        hourlyRate: {
-            type: Number,
-            min: 0,
-        },
-
-        // Availability
         availability: {
             type: Boolean,
             default: true,
@@ -48,12 +26,16 @@ const workerSchema = new mongoose.Schema(
             default: false,
         },
         verification: {
+            selfieImage: {
+                type: String,
+                default: null,
+            },
             policeDocUrl: {
-                type: String, // URL to the police verification document
+                type: String,
                 default: null,
             },
             aadharDocUrl: {
-                type: String, // URL to the Aadhar document
+                type: String,
                 default: null,
             },
             isPoliceDocVerified: {
@@ -64,16 +46,19 @@ const workerSchema = new mongoose.Schema(
                 type: Boolean,
                 default: false,
             },
+            isSelfieVerified: {
+                type: Boolean,
+                default: false,
+            },
         },
-        // Verification status summary
         verificationStage: {
             type: String,
             enum: [
                 "TNC_PENDING",
                 "TNC_ACCEPTED",
                 "AADHAR_DOC_SUBMITTED",
-                "PHOTO_UPLOADED",
                 "POLICE_DOC_SUBMITTED",
+                "PHOTO_UPLOADED",
                 "UNDER_REVIEW",
                 "APPROVED",
                 "REJECTED",
@@ -81,7 +66,6 @@ const workerSchema = new mongoose.Schema(
             default: "TNC_PENDING",
         },
 
-        // Ratings & Reviews
         rating: {
             type: Number,
             min: 0,
@@ -99,7 +83,6 @@ const workerSchema = new mongoose.Schema(
             },
         ],
 
-        // Profile extras
         bio: {
             type: String,
         },

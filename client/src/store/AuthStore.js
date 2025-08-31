@@ -94,7 +94,6 @@ const useAuthStore = create((set, get) => ({
             throw error;
         }
     },
-
     logout: async () => {
         try {
             await axiosInstance.get("/api/auth/log-out");
