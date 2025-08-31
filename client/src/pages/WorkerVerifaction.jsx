@@ -2,6 +2,98 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import useWorkerStore from "../store/WorkerStore.";
 import { useNavigate } from "react-router-dom";
 
+const WebcamCapture = ({ onCapture, onError }) => {
+    const videoRef = useRef(null);
+    const canvasRef = useRef(null);
+    const [hasPermission, setHasPermission] = useState(null);
+
+    useEffect(() => {
+        const startCamera = async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "user" },
+                });
+                if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                }
+                setHasPermission(true);
+            } catch (err) {
+                console.error("Camera access error:", err);
+                setHasPermission(false);
+                onError(
+                    "Camera access denied. Please allow camera access and refresh."
+                );
+            }
+        };
+        startCamera();
+
+        return () => {
+            // Cleanup: stop all video streams when component unmounts
+            if (videoRef.current?.srcObject) {
+                videoRef.current.srcObject
+                    .getTracks()
+                    .forEach((track) => track.stop());
+            }
+        };
+    }, [onError]);
+
+    const capturePhoto = () => {
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+
+        if (video && canvas) {
+            const context = canvas.getContext("2d");
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0);
+
+            // Convert canvas to blob
+            canvas.toBlob(
+                (blob) => {
+                    // Create a File object from the blob
+                    const file = new File([blob], "selfie.jpg", {
+                        type: "image/jpeg",
+                    });
+                    onCapture(file);
+                },
+                "image/jpeg",
+                0.8
+            );
+        }
+    };
+
+    if (hasPermission === null) {
+        return <div>Requesting camera permission...</div>;
+    }
+
+    if (hasPermission === false) {
+        return (
+            <div>
+                Camera access denied. Please allow camera access and refresh.
+            </div>
+        );
+    }
+
+    return (
+        <div className="relative">
+            <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                className="w-full rounded-lg"
+                style={{ maxWidth: "400px" }}
+            />
+            <canvas ref={canvasRef} style={{ display: "none" }} />
+            <button
+                onClick={capturePhoto}
+                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+                Take Photo
+            </button>
+        </div>
+    );
+};
+
 export default function WorkerVerificationFlow() {
     const navigate = useNavigate();
     // States
@@ -26,11 +118,13 @@ export default function WorkerVerificationFlow() {
         getVerificationStatus,
         isLoading: storeLoading,
         getCurrentStage,
+        uploadProfilePhoto,
     } = useWorkerStore();
 
     const steps = useMemo(
         () => [
             { title: "Terms & Conditions", key: "tnc" },
+            { title: "Take Selfie", key: "selfie" },
             { title: "Police Verification PDF", key: "police" },
             { title: "Aadhaar / ID Upload", key: "aadhaar" },
             { title: "Admin Approval", key: "review" },
@@ -38,6 +132,28 @@ export default function WorkerVerificationFlow() {
         ],
         []
     );
+
+    const [selfiePreview, setSelfiePreview] = useState(null);
+
+    const handleSelfieCapture = async (file) => {
+        try {
+            setLoading(true);
+            setError("");
+
+            const formData = new FormData();
+            formData.append("file", file);
+
+            await uploadProfilePhoto(file);
+            setSelfiePreview(URL.createObjectURL(file));
+            setSuccess("Selfie uploaded successfully");
+            setTimeout(() => setStep(2), 1000);
+        } catch (error) {
+            setError("Failed to upload selfie. Please try again.");
+            console.error("Selfie upload error:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const progress = useMemo(
         () => ((step + 1) / steps.length) * 100,
@@ -97,7 +213,7 @@ export default function WorkerVerificationFlow() {
             await uploadPoliceVerification(file);
             setSuccess("Police verification uploaded");
             setPoliceStatus("Pending");
-            setStep(2);
+            setStep(3);
         } catch (e) {
             setError(e?.message || "Upload failed");
         } finally {
@@ -116,7 +232,7 @@ export default function WorkerVerificationFlow() {
             await uploadAadharDoc(file);
             setSuccess("ID uploaded");
             setAadhaarStatus("Pending");
-            setStep(3);
+            setStep(4);
         } catch (e) {
             setError(e?.message || "Upload failed");
         } finally {
@@ -134,39 +250,42 @@ export default function WorkerVerificationFlow() {
                 // Update step based on verification stage
                 setStep(currentStep);
 
-                // Update document statuses
+                // Update document statuses and handle selfie preview
                 if (verification) {
                     setPoliceStatus(verification.policeStatus || "Pending");
                     setAadhaarStatus(verification.aadharStatus || "Pending");
 
-                    // Auto advance to review step if both documents are uploaded
-                    if (
+                    // If selfie exists, set preview and move to next step
+                    if (verification.selfieImage) {
+                        setSelfiePreview(verification.selfieImage);
+                    }
+
+                    // Stage progression logic
+                    if (verificationStage === "TNC_ACCEPTED") {
+                        setStep(1); // Show selfie step
+                    } else if (verificationStage === "PHOTO_UPLOADED") {
+                        setStep(2); // Move to police verification
+                    } else if (
                         verification.policeDocUrl &&
                         verification.aadharDocUrl
                     ) {
-                        setStep(3);
+                        setStep(4); // Review stage
                     }
 
-                    // Auto advance to final step if both are approved
+                    // Auto advance to final step if all documents are approved
                     if (
                         verification.isPoliceDocVerified &&
-                        verification.isAadharDocVerified
+                        verification.isAadharDocVerified &&
+                        verification.isSelfieVerified
                     ) {
-                        setStep(4);
+                        setStep(5);
+                        setSuccess("All documents have been approved!");
                     }
                 }
 
                 // Set TnC accepted if user has progressed beyond that stage
                 if (verificationStage !== "TNC_PENDING") {
                     setTncAccepted(true);
-                }
-
-                // Show success message if documents are approved
-                if (
-                    verification?.isPoliceDocVerified &&
-                    verification?.isAadharDocVerified
-                ) {
-                    setSuccess("All documents have been approved!");
                 }
             } catch (error) {
                 setError(
@@ -403,8 +522,52 @@ export default function WorkerVerificationFlow() {
                                 </div>
                             </div>
                         )}
-
                         {step === 1 && (
+                            <div>
+                                <h2 className="text-xl font-semibold mb-3">
+                                    Take a Selfie
+                                </h2>
+                                <p className="text-sm text-slate-600 mb-4">
+                                    Please take a clear photo of your face in
+                                    good lighting. This will be used for
+                                    verification purposes.
+                                </p>
+
+                                {selfiePreview ? (
+                                    <div className="mb-4">
+                                        <img
+                                            src={selfiePreview}
+                                            alt="Preview"
+                                            className="w-full max-w-[400px] rounded-lg"
+                                        />
+                                        <button
+                                            onClick={() =>
+                                                setSelfiePreview(null)
+                                            }
+                                            className="mt-2 text-sm text-blue-600 hover:text-blue-700"
+                                        >
+                                            Retake Photo
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <WebcamCapture
+                                        onCapture={handleSelfieCapture}
+                                        onError={setError}
+                                    />
+                                )}
+
+                                <div className="mt-4 flex gap-3">
+                                    <button
+                                        onClick={() => setStep(0)}
+                                        className="px-4 py-2 rounded-lg border"
+                                    >
+                                        Back
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {step === 2 && (
                             <div>
                                 <h2 className="text-xl font-semibold mb-3">
                                     Upload Police Verification (PDF)
@@ -442,7 +605,7 @@ export default function WorkerVerificationFlow() {
                             </div>
                         )}
 
-                        {step === 2 && (
+                        {step === 3 && (
                             <div>
                                 <h2 className="text-xl font-semibold mb-3">
                                     Upload Aadhaar / ID
@@ -480,7 +643,7 @@ export default function WorkerVerificationFlow() {
                             </div>
                         )}
 
-                        {step === 3 && (
+                        {step === 4 && (
                             <div>
                                 <h2 className="text-xl font-semibold mb-3">
                                     Admin Review & Status
@@ -565,7 +728,7 @@ export default function WorkerVerificationFlow() {
                             </div>
                         )}
 
-                        {step === 4 && (
+                        {step === 5 && (
                             <div className="text-center">
                                 <div className="mx-auto w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 text-2xl font-bold mb-3">
                                     ✓

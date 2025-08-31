@@ -26,6 +26,10 @@ const workerSchema = new mongoose.Schema(
             default: false,
         },
         verification: {
+            selfieImage: {
+                type: String,
+                default: null,
+            },
             policeDocUrl: {
                 type: String,
                 default: null,
@@ -42,6 +46,10 @@ const workerSchema = new mongoose.Schema(
                 type: Boolean,
                 default: false,
             },
+            isSelfieVerified: {
+                type: Boolean,
+                default: false,
+            },
         },
         verificationStage: {
             type: String,
@@ -49,8 +57,8 @@ const workerSchema = new mongoose.Schema(
                 "TNC_PENDING",
                 "TNC_ACCEPTED",
                 "AADHAR_DOC_SUBMITTED",
-                "PHOTO_UPLOADED",
                 "POLICE_DOC_SUBMITTED",
+                "PHOTO_UPLOADED",
                 "UNDER_REVIEW",
                 "APPROVED",
                 "REJECTED",
