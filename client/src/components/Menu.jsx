@@ -37,10 +37,10 @@ const menuItems = [
         link: "/workerdashboard",
     },
     {
-        id: "settings",
+        id: "services",
         icon: <FiSettings />,
-        label: "Settings",
-        link: "/workerdashboard",
+        label: "Services",
+        link: "/worker/service",
     },
 ];
 

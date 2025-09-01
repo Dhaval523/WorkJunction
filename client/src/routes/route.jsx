@@ -11,6 +11,7 @@ import AdminPanel from "../pages/AdminPage";
 import WorkerVerification from "../pages/WorkerVerifaction";
 import VerificationPage from "../pages/MobileNumberVerificationPage";
 import UpdateWorkerProfileCard from "../components/UpdateWorkerProfileCard";
+import WorkerServicesPage from "../pages/WorkerServicePage";
 
 const Routers = () => {
     return (
@@ -36,6 +37,10 @@ const Routers = () => {
                     <Route
                         path="/worker/profile"
                         element={<UpdateWorkerProfileCard />}
+                    />
+                    <Route
+                        path="/worker/service"
+                        element={<WorkerServicesPage />}
                     />
                 </Routes>
             </Router>
