@@ -41,30 +41,34 @@ const ViewMode = ({ worker, setIsEditing }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <div className="p-4 bg-gray-50 rounded-lg">
                         <h4 className="text-sm text-gray-500 flex items-center gap-1">
-                            <FiBriefcase className="text-indigo-600" /> Category
-                        </h4>
-                        <p className="mt-1 text-lg font-medium text-gray-800">
-                            {worker.category || "Not specified"}
-                        </p>
-                    </div>
-
-                    <div className="p-4 bg-gray-50 rounded-lg">
-                        <h4 className="text-sm text-gray-500 flex items-center gap-1">
                             <FiStar className="text-yellow-600" /> Experience
                         </h4>
                         <p className="mt-1 text-lg font-medium text-gray-800">
                             {worker.experience || 0} years
                         </p>
                     </div>
-
                     <div className="p-4 bg-gray-50 rounded-lg">
-                        <h4 className="text-sm text-gray-500 flex items-center gap-1">
-                            <FiDollarSign className="text-green-600" /> Hourly
-                            Rate
+                        <h4 className="text-sm text-gray-500">
+                            Languages Spoken
                         </h4>
-                        <p className="mt-1 text-lg font-medium text-gray-800">
-                            ₹{worker.hourlyRate || 0}/hour
-                        </p>
+                        <div className="mt-1 flex flex-wrap gap-2">
+                            {(worker.languagesSpoken || []).length > 0 ? (
+                                worker.languagesSpoken.map(
+                                    (language, index) => (
+                                        <span
+                                            key={index}
+                                            className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm"
+                                        >
+                                            {language}
+                                        </span>
+                                    )
+                                )
+                            ) : (
+                                <span className="text-gray-500">
+                                    No languages specified
+                                </span>
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -128,25 +132,6 @@ const EditMode = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
                 <label className="block text-sm font-medium text-gray-700">
-                    Category
-                </label>
-                <select
-                    name="category"
-                    value={formData.category}
-                    onChange={handleChange}
-                    className="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                >
-                    <option value="">Select Category</option>
-                    {categories.map((cat) => (
-                        <option key={cat} value={cat}>
-                            {cat}
-                        </option>
-                    ))}
-                </select>
-            </div>
-
-            <div>
-                <label className="block text-sm font-medium text-gray-700">
                     Skills (comma-separated)
                 </label>
                 <input
@@ -174,15 +159,15 @@ const EditMode = ({
 
             <div>
                 <label className="block text-sm font-medium text-gray-700">
-                    Hourly Rate (₹)
+                    Languages Spoken (comma-separated)
                 </label>
                 <input
-                    type="number"
-                    name="hourlyRate"
-                    value={formData.hourlyRate}
+                    type="text"
+                    name="languagesSpoken"
+                    value={formData.languagesSpoken}
                     onChange={handleChange}
-                    min="0"
                     className="mt-1 block w-full py-2 px-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="e.g. English, Hindi, Gujarati"
                 />
             </div>
 
@@ -223,11 +208,10 @@ const WorkerProfile = () => {
     const { worker, updateWorkerProfile, getWorkerData } = useWorkerStore();
     const [isEditing, setIsEditing] = useState(false);
     const [formData, setFormData] = useState({
-        category: "",
         skills: "",
         experience: 0,
-        hourlyRate: 0,
         bio: "",
+        languagesSpoken: "",
     });
 
     const { getUser, user } = useAuthStore();
@@ -248,11 +232,10 @@ const WorkerProfile = () => {
     useEffect(() => {
         if (worker) {
             setFormData({
-                category: worker.category || "",
                 skills: (worker.skills || []).join(", "),
                 experience: worker.experience || 0,
-                hourlyRate: worker.hourlyRate || 0,
                 bio: worker.bio || "",
+                languagesSpoken: (worker.languagesSpoken || []).join(", "),
             });
         }
     }, [worker]);
@@ -280,6 +263,9 @@ const WorkerProfile = () => {
             await updateWorkerProfile({
                 ...formData,
                 skills: formData.skills.split(",").map((s) => s.trim()),
+                languagesSpoken: formData.languagesSpoken
+                    .split(",")
+                    .map((l) => l.trim()),
             });
             await getWorkerData();
             setIsEditing(false);

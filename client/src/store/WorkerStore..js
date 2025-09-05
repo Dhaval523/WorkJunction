@@ -2,10 +2,75 @@ import { create } from "zustand";
 import axiosInstance from "../Helper/AxioInstanse";
 import toast from "react-hot-toast";
 
-const useWorkerStore = create((set) => ({
+const useWorkerStore = create((set, get) => ({
     worker: null,
     isLoading: false,
     verificationStatus: null,
+    services: [],
+
+    getWorkerServices: async () => {
+        set({ isLoading: true });
+        try {
+            const worker = get().worker;
+            if (!worker) {
+                await get().getWorkerData();
+            }
+            const response = await axiosInstance.get("/api/workers/services");
+            set({ services: response.data.services });
+            return response.data.services;
+        } catch (error) {
+            console.error("Failed to fetch services:", error);
+            toast.error("Failed to fetch services");
+            throw error;
+        } finally {
+            set({ isLoading: false });
+        }
+    },
+
+    addService: async (serviceData) => {
+        set({ isLoading: true });
+        try {
+            const response = await axiosInstance.post(
+                "/api/workers/services",
+                serviceData
+            );
+            set((state) => ({
+                services: [...state.services, response.data.service],
+            }));
+            toast.success("Service added successfully");
+            return response.data.service;
+        } catch (error) {
+            console.error("Failed to add service:", error);
+            toast.error("Failed to add service");
+            throw error;
+        } finally {
+            set({ isLoading: false });
+        }
+    },
+    editService: async (serviceId, serviceData) => {
+        set({ isLoading: true });
+        try {
+            const response = await axiosInstance.patch(
+                `/api/workers/services/${serviceId}`,
+                serviceData
+            );
+
+            set((state) => ({
+                services: state.services.map((service) =>
+                    service._id === serviceId ? response.data.service : service
+                ),
+            }));
+
+            toast.success("Service updated successfully");
+            return response.data.service;
+        } catch (error) {
+            console.error("Failed to update service:", error);
+            toast.error("Failed to update service");
+            throw error;
+        } finally {
+            set({ isLoading: false });
+        }
+    },
 
     getWorkerData: async () => {
         try {
