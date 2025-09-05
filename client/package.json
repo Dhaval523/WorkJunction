@@ -13,7 +13,7 @@
     "@tailwindcss/vite": "^4.1.4",
     "axios": "^1.9.0",
     "chart.js": "^4.4.9",
-    "framer-motion": "^12.9.4",
+    "framer-motion": "^12.23.12",
     "js-cookie": "^3.0.5",
     "lucide-react": "^0.541.0",
     "react": "^19.0.0",

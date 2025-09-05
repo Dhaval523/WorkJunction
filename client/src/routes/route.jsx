@@ -10,8 +10,13 @@ import WorkerDashboard from "../pages/WorkerDashboard";
 import AdminPanel from "../pages/AdminPage";
 import WorkerVerification from "../pages/WorkerVerifaction";
 import VerificationPage from "../pages/MobileNumberVerificationPage";
+import WorkJunctionLanding from "../pages/WorkJunctionLanding.jsx";
 import UpdateWorkerProfileCard from "../components/UpdateWorkerProfileCard";
+<<<<<<< HEAD
+import ServiceAgentDashboard from "../pages/ServiceAgentDashboard.jsx";
+=======
 import WorkerServicesPage from "../pages/WorkerServicePage";
+>>>>>>> a167718d0d5eeb5fffbdf48ee016f196d4175320
 
 const Routers = () => {
     return (
@@ -38,10 +43,15 @@ const Routers = () => {
                         path="/worker/profile"
                         element={<UpdateWorkerProfileCard />}
                     />
+<<<<<<< HEAD
+                    <Route path="/" element={< WorkJunctionLanding/>} />
+                    <Route path="/serviceAgent" element={<ServiceAgentDashboard/>}/>
+=======
                     <Route
                         path="/worker/service"
                         element={<WorkerServicesPage />}
                     />
+>>>>>>> a167718d0d5eeb5fffbdf48ee016f196d4175320
                 </Routes>
             </Router>
         </div>

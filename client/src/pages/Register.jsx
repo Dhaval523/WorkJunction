@@ -1,263 +1,209 @@
 import { useEffect, useState } from "react";
 import { FcGoogle } from "react-icons/fc";
 import { FaHammer, FaUser } from "react-icons/fa";
+import { FiMail, FiLock, FiPhone, FiUser as FiUserIcon } from 'react-icons/fi';
 import { useAuthStore } from "../store/AuthStore";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
+import { clsx } from 'clsx';
+
+// --- Reusable Components Styled to Match the Image ---
+
+const Input = ({ label, type = 'text', name, placeholder, value, onChange, icon }) => (
+    <div>
+        <label className="block text-sm font-semibold text-zinc-600 mb-1.5">
+            {label}
+        </label>
+        <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-zinc-400">
+                {icon}
+            </div>
+            <input
+                type={type}
+                name={name}
+                className="w-full pl-11 pr-4 py-3 bg-zinc-100 text-zinc-800 rounded-xl border-2 border-transparent focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400 transition placeholder:text-zinc-400"
+                placeholder={placeholder}
+                value={value}
+                onChange={onChange}
+                required
+            />
+        </div>
+    </div>
+);
+
+const Button = ({ children, variant = 'primary', className, ...props }) => {
+    const baseClasses = "w-full px-6 py-3.5 font-bold rounded-xl text-base transition-all flex items-center justify-center gap-2.5";
+    const variants = {
+        primary: "text-zinc-900 bg-yellow-400 hover:bg-yellow-500",
+        secondary: "text-white bg-zinc-800 hover:bg-zinc-700",
+    };
+    return (
+        <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            className={clsx(baseClasses, variants[variant], className)}
+            {...props}
+        >
+            {children}
+        </motion.button>
+    );
+};
+
+
+// --- Main Signup Page Component ---
 
 const SignupPage = () => {
     const [selectedRole, setSelectedRole] = useState(null);
-    const [formData, setFormData] = useState({
-        name: "",
-        phone: "",
-        email: "",
-        password: "",
-        confirmPassword: "",
-    });
+    const [formData, setFormData] = useState({ name: "", phone: "", email: "", password: "", confirmPassword: "" });
+    const [error, setError] = useState(null);
 
-    const { signUp, user, googleSignUp, sendOtp, getUser } = useAuthStore();
+    const { signUp, googleSignUp, sendOtp, getUser } = useAuthStore();
     const navigate = useNavigate();
 
     useEffect(() => {
         const checkAuth = async () => {
             try {
-                const response = await getUser();
-                if (response) {
-                    redirectBasedOnRole(response);
-                }
-            } catch (error) {
-                // Handle silently - user needs to login
-            }
+                const user = await getUser();
+                if (user) redirectBasedOnRole(user);
+            } catch (err) { /* User not logged in */ }
         };
         checkAuth();
-    }, []);
+    }, [getUser]);
 
-    // Handle role-based navigation
     const redirectBasedOnRole = (user) => {
-        if (user?.role === "worker") {
-            navigate("/workerdashboard");
-        } else if (user?.role === "customer") {
-            navigate("/userdashboard");
-        } else if (user?.role === "admin") {
-            navigate("/admin/dashboard");
-        }
+        if (user?.role === "worker") navigate("/workerdashboard");
+        else if (user?.role === "customer") navigate("/userdashboard");
+        else if (user?.role === "admin") navigate("/admin/dashboard");
     };
 
     const handleGoogleSignup = async () => {
-        // Google OAuth implementation
+        if (!selectedRole) {
+            setError("Please choose a role first.");
+            return;
+        }
+        setError(null);
         await googleSignUp(selectedRole);
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-
-        // Validate password confirmation (assuming you have confirmPassword in formData)
+        setError(null);
         if (isNaN(formData.phone) || formData.phone.length !== 10) {
-            alert("Invalid phone number!");
+            setError("Please enter a valid 10-digit phone number.");
             return;
         }
-
         if (formData.password !== formData.confirmPassword) {
-            alert("Passwords do not match!");
+            setError("Passwords do not match.");
             return;
         }
-
-        const data = {
-            fullName: formData.name,
-            email: formData.email,
-            password: formData.password,
-            role: selectedRole,
-            phone: formData.phone,
-        };
-
+        if (formData.password.length < 6) {
+            setError("Password must be at least 6 characters long.");
+            return;
+        }
+        const data = { fullName: formData.name, email: formData.email, password: formData.password, role: selectedRole, phone: formData.phone };
         const user = await signUp(data);
-
         if (user) {
             await sendOtp({ mobileNumber: user?.phone });
             navigate("/otp");
+        } else {
+            setError("Signup failed. An account with this email or phone may already exist.");
         }
     };
+    
+    const handleFormChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-xl overflow-hidden w-full max-w-md">
-                <div className="bg-indigo-600 py-6 px-8 text-center">
-                    <h1 className="text-3xl font-bold text-white">
-                        Work Junction
-                    </h1>
-                    <p className="text-indigo-100 mt-2">
-                        Find skilled workers or get hired
-                    </p>
-                </div>
-
-                <div className="p-8">
-                    {/* Role Selection */}
-                    <div className="flex justify-center space-x-4 mb-8">
-                        <button
-                            onClick={() => setSelectedRole("worker")}
-                            className={`flex flex-col items-center p-4 rounded-xl border-2 transition-all ${
-                                selectedRole === "worker"
-                                    ? "border-indigo-500 bg-indigo-50"
-                                    : "border-gray-200 hover:border-indigo-300"
-                            }`}
-                        >
-                            <div className="bg-indigo-100 p-3 rounded-full mb-2">
-                                <FaHammer className="text-indigo-600 text-xl" />
+        <div className="min-h-screen w-full bg-zinc-100 text-zinc-800 font-sans flex items-center justify-center p-4">
+            <motion.div 
+                className="w-full max-w-lg bg-white border border-gray-200/80 rounded-2xl shadow-xl overflow-hidden"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, ease: "easeOut" }}
+            >
+                <div className="p-8 md:p-10">
+                    <div className="text-center mb-8">
+                        <div className="flex items-center justify-center gap-2 mb-2">
+                            <div className="w-10 h-10 bg-zinc-800 rounded-lg flex items-center justify-center">
+                                <span className="text-white font-bold text-xl">WJ</span>
                             </div>
-                            <span className="font-medium">I'm a Worker</span>
-                            <span className="text-xs text-gray-500 mt-1">
-                                Offer my services
-                            </span>
-                        </button>
-
-                        <button
-                            onClick={() => setSelectedRole("customer")}
-                            className={`flex flex-col items-center p-4 rounded-xl border-2 transition-all ${
-                                selectedRole === "customer"
-                                    ? "border-indigo-500 bg-indigo-50"
-                                    : "border-gray-200 hover:border-indigo-300"
-                            }`}
-                        >
-                            <div className="bg-indigo-100 p-3 rounded-full mb-2">
-                                <FaUser className="text-indigo-600 text-xl" />
-                            </div>
-                            <span className="font-medium">I'm a Customer</span>
-                            <span className="text-xs text-gray-500 mt-1">
-                                Find skilled workers
-                            </span>
-                        </button>
+                            <h1 className="text-3xl font-extrabold text-zinc-900">WorkJunction</h1>
+                        </div>
+                        <p className="text-zinc-500">Create an account to get started.</p>
                     </div>
 
-                    {/* Signup Form */}
-                    {selectedRole && (
-                        <>
-                            <form onSubmit={handleSubmit} className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Full Name
-                                    </label>
-                                    <input
-                                        type="text"
-                                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
-                                        placeholder="Enter your full name"
-                                        value={formData.name}
-                                        onChange={(e) =>
-                                            setFormData({
-                                                ...formData,
-                                                name: e.target.value,
-                                            })
-                                        }
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Phone No:
-                                    </label>
-                                    <input
-                                        type="text"
-                                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
-                                        placeholder="Enter your phone number"
-                                        value={formData.phone}
-                                        onChange={(e) =>
-                                            setFormData({
-                                                ...formData,
-                                                phone: e.target.value,
-                                            })
-                                        }
-                                    />
-                                </div>
+                    {/* Role Selection */}
+                    <fieldset className="mb-8">
+                        <legend className="block text-sm font-semibold text-zinc-600 mb-3 text-center">First, select your role</legend>
+                        <div className="grid grid-cols-2 gap-4">
+                            {['worker', 'customer'].map(role => (
+                                <motion.div key={role} whileHover={{ y: -4 }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSelectedRole(role)}
+                                        className={clsx(
+                                            "w-full p-4 rounded-xl border-2 text-center transition-all duration-200 flex flex-col items-center gap-3",
+                                            selectedRole === role
+                                                ? "border-yellow-400 bg-yellow-50"
+                                                : "border-zinc-200 bg-white hover:border-zinc-300"
+                                        )}
+                                    >
+                                        <div className={`text-xl ${selectedRole === role ? 'text-yellow-500' : 'text-zinc-500'}`}>
+                                            {role === 'worker' ? <FaHammer/> : <FaUser />}
+                                        </div>
+                                        <span className="font-semibold text-zinc-800 capitalize">I'm a {role}</span>
+                                    </button>
+                                </motion.div>
+                            ))}
+                        </div>
+                    </fieldset>
 
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Email
-                                    </label>
-                                    <input
-                                        type="email"
-                                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
-                                        placeholder="Enter your email"
-                                        value={formData.email}
-                                        onChange={(e) =>
-                                            setFormData({
-                                                ...formData,
-                                                email: e.target.value,
-                                            })
-                                        }
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Password
-                                    </label>
-                                    <input
-                                        type="password"
-                                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
-                                        placeholder="Create a password"
-                                        value={formData.password}
-                                        onChange={(e) =>
-                                            setFormData({
-                                                ...formData,
-                                                password: e.target.value,
-                                            })
-                                        }
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Confirm Password
-                                    </label>
-                                    <input
-                                        type="password"
-                                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
-                                        placeholder="Confirm your password"
-                                        value={formData.confirmPassword}
-                                        onChange={(e) =>
-                                            setFormData({
-                                                ...formData,
-                                                confirmPassword: e.target.value,
-                                            })
-                                        }
-                                    />
-                                </div>
-
-                                <button
-                                    type="submit"
-                                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-4 rounded-lg transition duration-300 shadow-md hover:shadow-lg"
-                                >
-                                    Sign Up as{" "}
-                                    {selectedRole === "worker"
-                                        ? "Worker"
-                                        : "Customer"}
-                                </button>
-                            </form>
-
-                            <div className="flex items-center my-6">
-                                <div className="flex-1 border-t border-gray-300"></div>
-                                <span className="px-3 text-gray-500">or</span>
-                                <div className="flex-1 border-t border-gray-300"></div>
-                            </div>
-
-                            <button
-                                onClick={handleGoogleSignup}
-                                className="w-full flex items-center justify-center gap-2 bg-white border border-gray-300 hover:border-gray-400 text-gray-700 font-medium py-3 px-4 rounded-lg transition duration-300 shadow-sm"
+                    {/* Form Section */}
+                    <AnimatePresence>
+                        {selectedRole && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 10, height: 0 }}
+                                animate={{ opacity: 1, y: 0, height: 'auto' }}
+                                exit={{ opacity: 0, y: -10, height: 0 }}
+                                transition={{ duration: 0.4, ease: "easeInOut" }}
+                                className="overflow-hidden"
                             >
-                                <FcGoogle className="text-xl" />
-                                Continue with Google
-                            </button>
+                                <form onSubmit={handleSubmit} className="space-y-4">
+                                    <Input label="Full Name" name="name" placeholder="John Doe" value={formData.name} onChange={handleFormChange} icon={<FiUserIcon />} />
+                                    <Input label="Phone" name="phone" placeholder="9876543210" value={formData.phone} onChange={handleFormChange} icon={<FiPhone />} />
+                                    <Input label="Email" name="email" type="email" placeholder="you@example.com" value={formData.email} onChange={handleFormChange} icon={<FiMail />} />
+                                    <Input label="Password" name="password" type="password" placeholder="Min. 6 characters" value={formData.password} onChange={handleFormChange} icon={<FiLock />} />
+                                    <Input label="Confirm Password" name="confirmPassword" type="password" placeholder="Re-enter your password" value={formData.confirmPassword} onChange={handleFormChange} icon={<FiLock />} />
 
-                            <p className="text-center text-sm text-gray-600 mt-6">
-                                Already have an account?{" "}
-                                <a
-                                    href="/login"
-                                    className="text-indigo-600 hover:underline"
-                                >
-                                    Log in
-                                </a>
-                            </p>
-                        </>
-                    )}
+                                    <div className="pt-2">
+                                        <Button type="submit">Create Account</Button>
+                                    </div>
+                                </form>
+                                
+                                {error && (
+                                    <p className="mt-4 text-sm text-red-600 text-center">{error}</p>
+                                )}
+
+                                <div className="flex items-center my-6">
+                                    <div className="flex-1 border-t border-zinc-200"></div>
+                                    <span className="px-3 text-zinc-400 text-sm font-medium">OR</span>
+                                    <div className="flex-1 border-t border-zinc-200"></div>
+                                </div>
+                                
+                                <Button onClick={handleGoogleSignup} variant="secondary">
+                                    <FcGoogle size={22} /> Continue with Google
+                                </Button>
+                                
+                                <p className="text-center text-sm text-zinc-500 mt-8">
+                                    Already have an account?{" "}
+                                    <Link to="/login" className="font-semibold text-zinc-800 hover:text-black hover:underline">
+                                        Log In
+                                    </Link>
+                                </p>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
-            </div>
+            </motion.div>
         </div>
     );
 };
